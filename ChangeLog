@@ -1,0 +1,395 @@
+2017-04-29 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* imagemagick: adjusted image depth between canvas and original image. #86
+
+	* setup: use pkg-config instead of (Wand|imlib2|gdlib)-config. #85
+
+	* 0.9.2 released
+
+2017-02-16 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* bugfix: mistaken image offset adjusting. Thanks @urapico. refs #81 and #82
+
+	* 0.9.1 released
+
+2016-10-02 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* imlib2: change default small_light_imlib2_temp_dir value. Thanks @draskolnikova. refs #70
+
+	* bugfix: small_light_imlib2_temp_dir was not modfiabile.
+
+	* bugfix: failed to load modules dynamically on linux. refs #66
+
+	* bugfix: path-through did not work.
+
+	* 0.9.0 released
+
+2016-08-19 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* Adjust hash bucket size of `small_light_init_params`. Thanks @takano32. refs #65
+
+	* Adjust hash bucket size of `small_light_pattern_define`.
+
+	* 0.8.1 released
+
+2016-07-11 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* imagemagick, imlib2, gd: cropped the center of image when only `cw` and `ch` are given.
+
+	* imagemagick: adjusted image offset automatically. fixes #44
+
+	* bugfix, gd: fixed parameter validations for `sharpen`.
+
+	* bugfix, imlib2: fixed parameter validations for `sharpen` and `blur`.
+
+	* bugfix: fixed strange size and offset calculation behavior. refs #46
+
+	* 0.8.0 released
+
+2016-05-20 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* bugfix: small_light_pattern_define didn't work when small_light_getparam_mode is enabled. It has appeared in v0.7.1.
+
+	* optimize: reduced allocation for parsing parameters.
+
+	* imagemagick: converted the first image instead of the last image in image list. Thanks @dtan4. refs #43
+
+	* 0.7.3 released
+
+2016-05-16 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* bugfix: nginx slows down in request processing for large image. Thanks @osamunmun. refs #41
+
+	* 0.7.2 released
+
+2016-05-06 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* bugfix: the some parameters (sharpen, unsharp, blur) was not available when small_light_getparam_mode is enabled.
+
+	* 0.7.1 released
+
+2016-04-27 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* introduced new directives: small_light_(radius|sigma)_max.
+
+	* set 10 to the maximum geometry value (radius and sigma) for `sharpen` and `unsharp` and `blur` by default.
+
+	* 0.7.0 released
+
+2016-03-19 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* bugfix: fixed compilation error when old ImageMagick version. Thanks @takp. #37
+
+	* 0.6.17 released
+
+2016-03-19 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* feature: introduced new parameter: autoorient. #35
+
+	* 0.6.16 released
+
+2016-02-11 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* feature: dynamic module is available from nginx-1.9.11.
+
+	* 0.6.15 released
+
+2016-01-10 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* config: output message on configure-error.
+
+	* imagemagick: set ThreadResource 1 always.
+
+	* 0.6.14 released
+
+2015-12-19 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* bugfix: fixed a memory leak which caused by a call of MagickGetImageFormat(). Thanks @dmurasaki. #33
+
+	* 0.6.13 released
+
+2015-12-16 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* bugfix: fixed invalid definition for image_exts.
+
+	* 0.6.12 released
+
+2015-09-20 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* feature: supported WebP-input with ImageMagick. Thanks @cgs3238. #31
+
+	* 0.6.11 released
+
+2015-06-29 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* bugfix: fixed the exit status for `./configure`.
+
+	* 0.6.10 released
+
+2015-06-09 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* bugfix: fixed image corruption by the combination of cropping and rotation. Thanks @gunyoki
+
+	* bugfix: fixed memory corruption when pass-through is enabled.
+
+	* bugfix: fixed memory corruption when imlib2 is selected.
+
+	* bugfix: fixed compilation error for using libjpeg8.
+
+	* removed unused code refs #24. Thanks @kaneshin
+
+	* 0.6.9 released
+
+2015-04-19 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* bugfix: fixed SEGV when pass-through is enabled for imagemagick and imlib2 and gd.
+
+	* bugfix: fixed fd leak for imlib2 when processing image failed.
+
+	* bugfix: fixed memory leak for imagemagick when processing embedicon and canvas failed.
+
+	* bugfix: fixed memory leak for imagemagick in all cases.
+
+	* optimize: release large memory blocks with ngx_pfree().
+
+	* 0.6.8 released
+
+2015-04-14 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* imagemagick, imlib2, gd: improved error handling with rotating image.
+
+	* bugfix: fixed `setup --with-gd` error with libgd-2.1.1.
+
+	* 0.6.7 released
+
+2015-03-07 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* feature: added parameter 'cmyk2rgb'.
+
+	* bugfix: color-inversion of CMYK-image(#21). Thanks @dtan4
+
+	* 0.6.6 released
+
+2015-02-24 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* optimization: reduced memory-allocations.
+
+	* 0.6.5 released
+
+2015-01-15 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* bugfix: ImageMagick semaphore error(#20). Thanks @dtan4
+
+	* 0.6.4 released
+
+2014-10-23 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* Support progressive JPEG by ImageMagick.
+
+	* 0.6.3 released
+
+2014-07-28 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix build issue with `--with-imlib2`. Thanks @Ajido
+
+	* 0.6.2 released
+
+2014-07-23 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix build issue with `--with-gd`. Thanks @yano3
+
+	* 0.6.1 released
+
+2014-07-17 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix a problem that small_light_getparam_mode doesn't work. Thanks @yano3
+
+	* add directive 'small_light_buffer'
+
+	* support WebP in output format by ImageMagick & GD
+
+	* 0.6.0 released
+
+2014-06-24 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix memory leak when 'pt' is not null
+
+	* (fix #11)fix double-free bug. Thanks @nhayashi for bug-reporting.
+
+	* 0.5.3 released
+
+2014-04-22 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix bug(invalid free-call when processing image failed)
+
+	* 0.5.2 released
+
+	* fix memory leak in processing image by GD
+
+	* return 415 when smalllight failed to process image
+
+	* improve error handling
+
+	* minor optimizing
+
+	* make code C89 compatible
+
+	* clean up code
+
+	* 0.5.1 released
+
+2013-09-28 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* add directive 'small_light_getparam_mode'
+
+	* remove parameter 'inhexif'
+
+	* 0.5.0 released
+
+2013-09-26 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix bug(Content-Type becomes invalid when processing image with Imlib2 and `of` is not used)
+
+	* optimize image-processing(remove wasted allocation for Content-Type)
+
+	* 0.4.1 released
+
+2013-07-26 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix bug(imlib_save_error sometimes fails in highly-loaded) ->  http://git.io/KKkgaQ
+
+	* fix resource leak -> http://git.io/KKkgaQ
+
+	* add parameter 'angle' -> http://git.io/mGk22A
+
+	* 0.4.0 released
+
+2013-07-21 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix bug(confate image with canvas by gd becomes grayscale) -> http://git.io/0-T3Qg
+
+	* 0.3.6 released
+
+2013-07-02 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix bug(the misalignment of image in canvas)
+
+	* fix bug(with 32bit instance in EC2, the worker process exited)
+
+	* 0.3.5 released
+
+2013-06-23 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix resource leak when failing to process a image
+
+	* 0.3.4 released
+
+2013-06-18 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* remove garbage in setup
+
+	* 0.3.3 released
+
+2013-06-18 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix setup bug(ngx_feature_test always fails)
+
+	* move *.(c|h) to src directory
+
+	* some refactorings
+
+	* 0.3.2 released
+
+2013-06-10 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix bug(The compilation without --with-gd always fails)
+
+	* 0.3.1 released
+
+2013-06-10 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* support GD graphics library
+
+	* fix bug(using negative value when adding border)
+
+	* fix bug(Content-Length becomes zero when using 'cw' and 'ch')
+
+	* 0.3.0 released
+
+2013-05-20 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix bug(imlib2-config --libs is not empty when imlib2 is disabled)
+
+	* 0.2.3 released
+
+2013-05-12 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* add option '--with-imlib2' to setup
+
+	* 0.2.2 released
+
+2013-01-26 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix memory corruption error when generated image size bigger than original image size with Imlib2
+
+	* 0.2.1 released
+
+2013-01-21 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* add imlib2 support
+
+	* fix bug(set not Content-Type but image format -> feaf24f)
+
+	* fix resource leak when embedicon is used
+
+	* 0.2.0 released
+
+2013-01-13 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* returns 415(Unsupported Media Type) if image convert process fails
+
+	* 0.1.4 released
+
+2012-12-30 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* fix compile error(3f0e2d3 hide this problems)
+
+	* fix problem that nginx's CFLAGS is orver-written by ngx_small_light
+
+	* 0.1.3 released
+
+2012-07-13 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* improve error messages(issues/2)
+
+	* 0.1.2 released
+
+2012-07-10 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* set default engine 'imagemagick'
+
+	* security fix(directory traversal with 'material_dir' and 'embedicon')
+
+	* 0.1.1 released
+
+2012-07-08 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* add command 'small_light_material_dir'
+
+	* add parameters 'ix', 'iy', 'embedicon'
+
+	* 0.1.0 released
+
+2012-07-04 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* (fix #1)fix memory corruption in parameter table
+
+	* add parameter 'rmprof'
+
+	* fix bug(flag parse function returns an invalid result)
+
+	* 0.0.2 released
+
+2011-06-13 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+
+	* 0.0.1 released
