@@ -95,7 +95,9 @@ typedef struct {
     ngx_http_small_light_color_t bc;
     ngx_int_t                    ix;
     ngx_int_t                    iy;
+    ngx_int_t                    img_dpr;
     double                       aspect;
+    double                       fitfactor;
     ngx_int_t                    pt_flg;
     ngx_int_t                    scale_flg;
     ngx_int_t                    jpeghint_flg;
