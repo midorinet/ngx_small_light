@@ -228,7 +228,7 @@ This directive is available when Imlib2 is enabled.
 
 ### small_light_buffer
 
-|Syntax     |*small_ligh_buffer size*|
+|Syntax     |*small_light_buffer size*|
 |-----------|------------------------|
 |**Default**|1m                      |
 |**Context**|server                  |
