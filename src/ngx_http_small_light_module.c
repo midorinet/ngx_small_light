@@ -41,14 +41,16 @@ const char *ngx_http_small_light_image_types[] = {
     "image/jpeg",
     "image/gif",
     "image/png",
-    "image/webp"
+    "image/webp",
+    "image/avif"
 };
 
 const char *ngx_http_small_light_image_exts[] = {
     "jpeg",
     "gif",
     "png",
-    "webp"
+    "webp",
+    "avif"
 };
 
 #ifdef NGX_HTTP_SMALL_LIGHT_IMLIB2_ENABLED

@@ -3,7 +3,7 @@ ngx_feature_libs="{$ngx_feature_libs}"
 ngx_feature_name=
 ngx_feature_run=no
 ngx_feature_inc_path="$ngx_feature_inc_path {$ngx_feature_inc_path}"
-ngx_feature_incs="#include <wand/MagickWand.h>
+ngx_feature_incs="#include <MagickWand/MagickWand.h>
 #include <Imlib2.h>
 #include <gd.h>
 "

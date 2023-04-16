@@ -5,6 +5,7 @@ types {
     text/xml                              xml;
     image/gif                             gif;
     image/jpeg                            jpeg jpg;
+    image/avif                            avif;
     application/x-javascript              js;
     application/atom+xml                  atom;
     application/rss+xml                   rss;
