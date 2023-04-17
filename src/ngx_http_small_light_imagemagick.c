@@ -116,8 +116,6 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
     ngx_int_t                               type;
     u_char                                  jpeg_size_opt[32], embedicon_path[256];
     ColorspaceType                          color_space;
-    Image                                   *wand_image;
-    CacheView                               *image_view;
     ExceptionInfo                           *exception;
 #if MagickLibVersion >= 0x690
     int                                     autoorient_flg, backgroundfill_flg;
@@ -344,9 +342,9 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
 
         ngx_http_small_light_adjust_canvas_image_offset(&sz);
 
+        // TODO: Not sure if this work. Need to check ngx_small_light with older ImageMagick
         // check background fill
         backgroundfill_flg = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "backgroundfill"));
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0, "TEST backgroundfill_flg:%d", backgroundfill_flg);
         if (backgroundfill_flg == 1) {
 
             ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0, "TEST backgroundfill_flg:%d", backgroundfill_flg);
@@ -363,38 +361,10 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
             MagickResizeImage(canvas_bg_wand, sz.cw*2, sz.ch*2, LanczosFilter);
             // NOTE: Deprecated function, MagickSetImageOpacity is no longer supported.
             // MagickSetImageOpacity(canvas_bg_wand, 0.5);
-            // wand_image = GetImageFromMagickWand(canvas_bg_wand);
-            // image_view = CloneCacheView(wand_image->cache);
-            // exception = AcquireExceptionInfo();
-            
-            // for (ssize_t y=0; y < (ssize_t) wand_image->rows; y++) {
-            //     Quantum *q;
-            //     q = GetCacheViewAuthenticPixels(
-            //         image_view,
-            //         0,
-            //         y,
-            //         wand_image->columns,
-            //         1,
-            //         exception
-            //     );
-            //     if (q == (Quantum *) NULL) {
-            //         status=MagickFalse;
-            //         continue;
-            //     }
-
-
-            //     for (ssize_t x=0; x < (ssize_t) wand_image->columns; x++) {
-            //         SetPixelAlpha(wand_image, 0.5, q);
-            // indexes[x]=(IndexPacket) QuantumRange-indexes[x];
-            //     }               
-            //     if (SyncCacheViewAuthenticPixels(image_view, exception) == MagickFalse){
-            //         status=MagickFalse;
-            //     }
-                    
-            // }
-            // image_view = DestroyCacheView(image_view);
-            // wand_image = DestroyImage(wand_image);
-            // exception = DestroyExceptionInfo(exception);
+            Image * bg_image = GetImageFromMagickWand(canvas_bg_wand);
+            exception = AcquireExceptionInfo();
+            SetImageAlpha(bg_image, 0.5, exception);
+            exception = DestroyExceptionInfo(exception);
 
 
             status = MagickCompositeImageGravity(canvas_wand, canvas_bg_wand, AtopCompositeOp, CenterGravity);
@@ -657,46 +627,7 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
                 );
             } else {
 #if defined(MAGICKCORE_HEIC_DELEGATE)
-                // Check if the encoder is available.
-                char *avif_format = (char *) ngx_http_small_light_image_exts[type - 1];
-                exception = AcquireExceptionInfo();
-                ngx_log_error(
-                    NGX_LOG_NOTICE, r->connection->log, 0,
-                    "AVIF format: %s %s:%d",
-                    avif_format,
-                    __FUNCTION__,
-                    __LINE__);
-                MagickInfo *avif_magick_info=GetMagickInfo(avif_format, exception);
-                // Print exception if any.
-                ngx_log_error(
-                    NGX_LOG_ERR, r->connection->log, 0,
-                    "AVIF exception: %s %s:%d",
-                    exception->reason,
-                    __FUNCTION__,
-                    __LINE__);
-                int avif_encoder_available = 0;
-                if (avif_magick_info == (const MagickInfo *) NULL) {
-                    ngx_log_error(
-                        NGX_LOG_ERR, r->connection->log, 0,
-                        "AVIF is not supported, please check libheif version %s:%d",
-                        __FUNCTION__,
-                        __LINE__);
-                } else {
-                    if (avif_magick_info->encoder == (EncodeImageHandler *) NULL) {
-                            ngx_log_error(
-                                NGX_LOG_ERR, r->connection->log, 0,
-                                "AVIF encoder is not available %s:%d",
-                                __FUNCTION__,
-                                __LINE__);
-                    } else {
-                        avif_encoder_available = 1;
-                    }
-                }
-
-                of = (char *)ngx_http_small_light_image_exts[ictx->type - 1];
-                if (avif_encoder_available == 1) {
-                    ictx->type = type;
-                }
+                ictx->type = type;
 #else
                 ngx_log_error(
                     NGX_LOG_ERR, r->connection->log, 0,
@@ -748,8 +679,8 @@ void ngx_http_small_light_imagemagick_genesis(void)
 
 void ngx_http_small_light_imagemagick_terminus(void)
 {
-    MagickWandTerminus();
     MagickCoreTerminus();
+    MagickWandTerminus();
 }
 
 int ngx_http_small_light_imagemagick_set_thread_limit(int limit)

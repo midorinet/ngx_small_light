@@ -70,7 +70,92 @@ if (sz.scale_flg != 0) {
 }
 ```
 
+#### Adding MagickCore Initiation
+MagickCore are used to set image Alpha. 
+##### [ngx_http_small_light_imagemagick.c](./src/ngx_http_small_light_imagemagick.c)
+```c
+
+// ######## 
+// ## Some code is omitted.
+// ########
+
+void ngx_http_small_light_imagemagick_genesis(void)
+{
+    MagickCoreGenesis(NULL, MagickTrue); <== Add this line
+    MagickWandGenesis();
+}
+
+void ngx_http_small_light_imagemagick_terminus(void)
+{
+    MagickCoreTerminus(); <== Add this line
+    MagickWandTerminus();
+}
+
+// ######## 
+// ## Some code is omitted.
+// ########
+
+```
 #### Check Background Fill
+Because the function **MagickResizeImage()** parameter is different between ImageMagick 6 and 7, we need to change the parameter to make it work with ImageMagick 7. The parameter `blurfactor` is removed in ImageMagick 7. TODO: Continue explanation.
+```c
+/* create canvas then draw image to the canvas. */
+if (sz.cw > 0.0 && sz.ch > 0.0) {
+   
+   // ######## 
+   // ## Some code is omitted.
+   // ########
+
+    backgroundfill_flg = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "backgroundfill"));
+    if (backgroundfill_flg == 1) {
+
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0, "TEST backgroundfill_flg:%d", backgroundfill_flg);
+        // first trim whitespace off the original image
+        MagickTrimImage(ictx->wand, 1.0);
+
+        canvas_bg_wand = CloneMagickWand(ictx->wand);
+        MagickResizeImage(canvas_bg_wand, sz.cw/4, sz.ch/4, LanczosFilter, 1.0); <== This line needs to be modified
+        MagickGaussianBlurImage(canvas_bg_wand, 0, 1);
+        MagickResizeImage(canvas_bg_wand, sz.cw*2, sz.ch*2, LanczosFilter, 1.0); <= This line needs to be modified
+        MagickResizeImage(canvas_bg_wand, sz.cw*2, sz.ch*2, LanczosFilter);
+        MagickSetImageOpacity(canvas_bg_wand, 0.5); <== This line needs to be modified
+   
+   // ######## 
+   // ## Some code is omitted.
+   // ########
+}
+```
+
+to 
+```c
+/* create canvas then draw image to the canvas. */
+if (sz.cw > 0.0 && sz.ch > 0.0) {
+   
+   // ######## 
+   // ## Some code is omitted.
+   // ########
+
+    backgroundfill_flg = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "backgroundfill"));
+    if (backgroundfill_flg == 1) {
+
+        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0, "TEST backgroundfill_flg:%d", backgroundfill_flg);
+        // first trim whitespace off the original image
+        MagickTrimImage(ictx->wand, 1.0);
+
+        canvas_bg_wand = CloneMagickWand(ictx->wand);
+        MagickResizeImage(canvas_bg_wand, sz.cw/4, sz.ch/4, LanczosFilter); <== This is modified result
+        MagickGaussianBlurImage(canvas_bg_wand, 0, 1);
+        MagickResizeImage(canvas_bg_wand, sz.cw*2, sz.ch*2, LanczosFilter); <== This is modified result
+        Image * bg_image = GetImageFromMagickWand(canvas_bg_wand); <== This is modified result
+        exception = AcquireExceptionInfo(); <== This is modified result
+        SetImageAlpha(bg_image, 0.5, exception); <== This is modified result
+        exception = DestroyExceptionInfo(exception); <== This is modified result
+   
+   // ######## 
+   // ## Some code is omitted.
+   // ########
+}
+```
 
 #### Embed Icon
 Because the function **MagickCompositeImageChannel()** is not supported in ImageMagick 7, we need to modify the code to use **MagickCompositeImage()** instead. In ImageMagick7 almost all image processing algorithms are now channel aware and all method channel analogs have been removed (e.g. **MagickCompositeImageChannel()**), they are no longer necessary. [Reference](https://imagemagick.org/script/porting.php)
@@ -104,6 +189,29 @@ if (ctx->material_dir->len > 0 && ngx_strlen(embedicon) > 0) {
 #### Adding support for AVIF conversion
 In order to add support for AVIF conversion, we need to add the following code to some of the file in the codebase.
 
+##### **[ngx_http_small_light_type.c](./src/ngx_http_small_light_type.c)**
+In function **ngx_http_small_light_type_detect()**, add the following code to detect AVIF image. AVIF image is identified by the following header: ...ftypavif.... or in hex: 00 00 00 20 66 74 79 70 61 76 69 66 00 00 00 00.
+```c
+ngx_int_t ngx_http_small_light_type_detect(u_char *image, size_t image_len)
+{
+
+// ######## 
+// ## Some code is omitted.
+// ########
+
+    } else if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x20 &&
+               p[4] == 0x66 && p[5] == 0x74 && p[6] == 0x79 && p[7] == 0x70 &&
+               p[8] == 0x61 && p[9] == 0x76 && p[10] == 0x69 && p[11] == 0x66 &&
+               p[12] == 0x00 && p[13] == 0x00 && p[14] == 0x00 && p[15] == 0x00) {
+        return NGX_HTTP_SMALL_LIGHT_IMAGE_AVIF;
+    } else {
+
+// ######## 
+// ## Some code is omitted.
+// ########
+
+}
+```
 ##### **[ngx_http_small_light_module.h](./src/ngx_http_small_light_module.h)**
 Define the constant for AVIF and add it to the list of supported image type and add some limitation for AVIF convertion.
 ```c
@@ -178,18 +286,13 @@ ngx_int_t ngx_http_small_light_type(const char *of)
 }
 ```
 
-##### **`ngx_http_small_light_imagemagick.c`**
-Add AVIF checking and convertion
-```c
-```
-
 #### Adding library implementation for AVIF conversion
 ##### **[ngx_http_small_light_avif.c](./src/ngx_http_small_light_avif.c)**
 Add MAGICKCORE_HEIC_DELEGATE checking to make sure that the ImageMagick library is compiled with libheif support. Eventhough the ImageMagick library is compiled with libheif support, it is still possible that the libheif library are not installed with AVIF encoder/decoder support such as libaom. In this case, the AVIF conversion will fail. 
-
 Checking encoder/decoder availability through C API is hard, some of the possible solution is by using [GetCoderInfo()](https://imagemagick.org/api/MagickCore/coder_8c_source.html#l00248) or [GetMagickInfo()](https://imagemagick.org/api/MagickCore/magick_8c_source.html#l00091). However,
 **GetCoderInfo()** can't be used because the function to initiate/de-initiate Coder Component (**CoderComponentGenesis()** and **CoderComponentTerminus()**) are private function that is not accessible
-[header file](https://imagemagick.org/api/MagickCore/coder-private_8h_source.html) . The other solution is to use [GetMagickInfo()](https://imagemagick.org/api/MagickCore/magick_8c_source.html#l00091).
+[private](https://imagemagick.org/api/MagickCore/coder-private_8h_source.html). **GetMagickInfo()** somehow make the program disfunctional. So I decided to check if there are any error during the conversion process. 
+
 ```c
 // ######## 
 // ## Some code is omitted.
@@ -240,6 +343,9 @@ Checking encoder/decoder availability through C API is hard, some of the possibl
         
         // Even if the library supports the format, the encoder/decoder may not be available.
         status = MagickSetFormat(ictx->wand, of);
+
+// ############################
+// ######## Start adding conversion checking
         if (status == MagickFalse) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                             "failed to set format(%s) %s:%d",
@@ -251,14 +357,16 @@ Checking encoder/decoder availability through C API is hard, some of the possibl
         } else {
             ctx->of = ngx_http_small_light_image_types[ictx->type - 1];
         }
+// ######## END adding conversion checking
+// ############################
 
 // ######## 
 // ## Some code is omitted.
 // ########
 ```
 
-#### Removing some unused variable
-##### **[ngx_http_small_light_imagemaigck.c](./src/ngx_http_small_light_imagemagick.c)**
+#### Modifying variable declaration
+##### **[ngx_http_small_light_imagemagick.c](./src/ngx_http_small_light_imagemagick.c)**
 ```c
 ngx_http_small_light_imagemagick_ctx_t *ictx;
     ngx_http_small_light_image_size_t       sz;
@@ -277,7 +385,5 @@ ngx_http_small_light_imagemagick_ctx_t *ictx;
     ngx_int_t                               type;
     u_char                                  jpeg_size_opt[32], embedicon_path[256]; <== crop_geo and size_geo are removed
     ColorspaceType                          color_space;
-    Image                                   *wand_image; <== Add new variable
-    CacheView                               *image_view; <== Add new variable
     ExceptionInfo                           *exception; <== Add new variable
 ```
