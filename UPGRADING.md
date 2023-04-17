@@ -185,7 +185,11 @@ Add AVIF checking and convertion
 
 #### Adding library implementation for AVIF conversion
 ##### **[ngx_http_small_light_avif.c](./src/ngx_http_small_light_avif.c)**
-MAGICKCORE_HEIC_DELEGATE is a macro that is defined when the ImageMagick library is compiled with libheif support
+Add MAGICKCORE_HEIC_DELEGATE checking to make sure that the ImageMagick library is compiled with libheif support. Eventhough the ImageMagick library is compiled with libheif support, it is still possible that the libheif library are not installed with AVIF encoder/decoder support such as libaom. In this case, the AVIF conversion will fail. 
+
+Checking encoder/decoder availability through C API is hard, some of the possible solution is by using [GetCoderInfo()](https://imagemagick.org/api/MagickCore/coder_8c_source.html#l00248) or [GetMagickInfo()](https://imagemagick.org/api/MagickCore/magick_8c_source.html#l00091). However,
+**GetCoderInfo()** can't be used because the function to initiate/de-initiate Coder Component (**CoderComponentGenesis()** and **CoderComponentTerminus()**) are private function that is not accessible
+[header file](https://imagemagick.org/api/MagickCore/coder-private_8h_source.html) . The other solution is to use [GetMagickInfo()](https://imagemagick.org/api/MagickCore/magick_8c_source.html#l00091).
 ```c
 // ######## 
 // ## Some code is omitted.
@@ -233,8 +237,20 @@ MAGICKCORE_HEIC_DELEGATE is a macro that is defined when the ImageMagick library
         } else {
             ictx->type = type;
         }
-        MagickSetFormat(ictx->wand, of);
-        ctx->of = ngx_http_small_light_image_types[ictx->type - 1];
+        
+        // Even if the library supports the format, the encoder/decoder may not be available.
+        status = MagickSetFormat(ictx->wand, of);
+        if (status == MagickFalse) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                            "failed to set format(%s) %s:%d",
+                            of,
+                            __FUNCTION__,
+                            __LINE__);
+            MagickSetFormat(ictx->wand, of_orig);
+            ctx->of = ctx->inf;
+        } else {
+            ctx->of = ngx_http_small_light_image_types[ictx->type - 1];
+        }
 
 // ######## 
 // ## Some code is omitted.

@@ -657,7 +657,46 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
                 );
             } else {
 #if defined(MAGICKCORE_HEIC_DELEGATE)
-                ictx->type = type;
+                // Check if the encoder is available.
+                char *avif_format = (char *) ngx_http_small_light_image_exts[type - 1];
+                exception = AcquireExceptionInfo();
+                ngx_log_error(
+                    NGX_LOG_NOTICE, r->connection->log, 0,
+                    "AVIF format: %s %s:%d",
+                    avif_format,
+                    __FUNCTION__,
+                    __LINE__);
+                MagickInfo *avif_magick_info=GetMagickInfo(avif_format, exception);
+                // Print exception if any.
+                ngx_log_error(
+                    NGX_LOG_ERR, r->connection->log, 0,
+                    "AVIF exception: %s %s:%d",
+                    exception->reason,
+                    __FUNCTION__,
+                    __LINE__);
+                int avif_encoder_available = 0;
+                if (avif_magick_info == (const MagickInfo *) NULL) {
+                    ngx_log_error(
+                        NGX_LOG_ERR, r->connection->log, 0,
+                        "AVIF is not supported, please check libheif version %s:%d",
+                        __FUNCTION__,
+                        __LINE__);
+                } else {
+                    if (avif_magick_info->encoder == (EncodeImageHandler *) NULL) {
+                            ngx_log_error(
+                                NGX_LOG_ERR, r->connection->log, 0,
+                                "AVIF encoder is not available %s:%d",
+                                __FUNCTION__,
+                                __LINE__);
+                    } else {
+                        avif_encoder_available = 1;
+                    }
+                }
+
+                of = (char *)ngx_http_small_light_image_exts[ictx->type - 1];
+                if (avif_encoder_available == 1) {
+                    ictx->type = type;
+                }
 #else
                 ngx_log_error(
                     NGX_LOG_ERR, r->connection->log, 0,
@@ -670,8 +709,20 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
         } else {
             ictx->type = type;
         }
-        MagickSetFormat(ictx->wand, of);
-        ctx->of = ngx_http_small_light_image_types[ictx->type - 1];
+
+        // Even if the library supports the format, the encoder/decoder may not be available.
+        status = MagickSetFormat(ictx->wand, of);
+        if (status == MagickFalse) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                            "failed to set format(%s) %s:%d",
+                            of,
+                            __FUNCTION__,
+                            __LINE__);
+            MagickSetFormat(ictx->wand, of_orig);
+            ctx->of = ctx->inf;
+        } else {
+            ctx->of = ngx_http_small_light_image_types[ictx->type - 1];
+        }
     } else {
         MagickSetFormat(ictx->wand, of_orig);
         ctx->of = ctx->inf;
@@ -691,12 +742,14 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
 
 void ngx_http_small_light_imagemagick_genesis(void)
 {
+    MagickCoreGenesis(NULL, MagickTrue);
     MagickWandGenesis();
 }
 
 void ngx_http_small_light_imagemagick_terminus(void)
 {
     MagickWandTerminus();
+    MagickCoreTerminus();
 }
 
 int ngx_http_small_light_imagemagick_set_thread_limit(int limit)
