@@ -97,7 +97,7 @@ void ngx_http_small_light_imagemagick_terminus(void)
 
 ```
 #### Check Background Fill
-Because the function **MagickResizeImage()** parameter is different between ImageMagick 6 and 7, we need to change the parameter to make it work with ImageMagick 7. The parameter `blurfactor` is removed in ImageMagick 7. TODO: Continue explanation.
+Because the function **MagickResizeImage()** parameter is different between ImageMagick 6 and 7, we need to change the parameter to make it work with ImageMagick 7. The parameter `blurfactor` is removed in ImageMagick In order to change the blur factor, we need to use **MagickSetImageAlpha()** instead. From Imagick 7 and so on, blur is not accessible, instead we need to use Alpha to change the blur factor.
 ```c
 /* create canvas then draw image to the canvas. */
 if (sz.cw > 0.0 && sz.ch > 0.0) {
@@ -146,10 +146,7 @@ if (sz.cw > 0.0 && sz.ch > 0.0) {
         MagickResizeImage(canvas_bg_wand, sz.cw/4, sz.ch/4, LanczosFilter); <== This is modified result
         MagickGaussianBlurImage(canvas_bg_wand, 0, 1);
         MagickResizeImage(canvas_bg_wand, sz.cw*2, sz.ch*2, LanczosFilter); <== This is modified result
-        Image * bg_image = GetImageFromMagickWand(canvas_bg_wand); <== This is modified result
-        exception = AcquireExceptionInfo(); <== This is modified result
-        SetImageAlpha(bg_image, 0.5, exception); <== This is modified result
-        exception = DestroyExceptionInfo(exception); <== This is modified result
+        MagickSetImageAlpha(canvas_bg_wand, 0.5);
    
    // ######## 
    // ## Some code is omitted.
@@ -385,5 +382,192 @@ ngx_http_small_light_imagemagick_ctx_t *ictx;
     ngx_int_t                               type;
     u_char                                  jpeg_size_opt[32], embedicon_path[256]; <== crop_geo and size_geo are removed
     ColorspaceType                          color_space;
-    ExceptionInfo                           *exception; <== Add new variable
 ```
+
+#### Adding support for Blur that is optimized by size.
+Given some command that can be used to blur an image with optimized size, by doing resizing instead of blurring the original image using larger blur radius (sigma). 
+```bash
+convert test.jpg -resize 10% -background "#fff" -flatten -strip -filter Gaussian \ 
+    -unsharp 0.25x0.08+8.3+0.045 -quality 35 -define png:compression-filter=5 \ 
+    -define png:compression-level=9 -define png:compression-strategy=1 \
+    -define png:exclude-chunk=all  -define filter:sigma=4.5 -resize 1000% o-o-1.jpg
+```
+The transformations applied to the image are as follows:
+1. Resize the image to 10% of its original size.
+2. Set the background color to white (#fff).
+3. Flatten the image to a single layer.
+4. Strip all metadata and comments from the image.
+5. Unsharpen the image with the settings 0.25x0.08+8.3+0.045. (radius x sigma + amount + threshold)
+6. Set the output quality to 35% (to reduce the size of the image).
+7. Set the PNG compression filter to 5, PNG compression level to 9, PNG compression strategy to 1, and exclude all chunks from the PNG output.
+8.  Resize the image to 1000% of its size by using gaussian filter with sigma value of 4.5.
+
+Overall, the command resizes, blurs, sharpens, and compresses the image with various settings to achieve blurring with optimized size. To apply that function we will create a new flag called **bluropt**, if the flag was marked as "y" then the function will be applied, otherwise it will be ignored. To apply this change, we need to modify the following files:
+
+##### **[ngx_http_small_light_param.c](./src/ngx_http_small_light_param.c)**
+Add bluropt flag to the list of flags and arguments.
+```c
+// ######## 
+// ## Some code is omitted.
+// ########
+static const ngx_http_small_light_param_t ngx_http_small_light_params[] = {
+    // ######## 
+    // ## Some code is omitted.
+    // ########
+    { ngx_string("bluropt"),  "n"}, <== Add this line
+    // ######## 
+    // ## Some code is omitted.
+    // ########
+};
+
+static const ngx_str_t ngx_http_small_light_getparams[] = {
+    // ######## 
+    // ## Some code is omitted.
+    // ########
+    ngx_string("arg_bluropt"),  <== Add this line
+    // ######## 
+    // ## Some code is omitted.
+    // ########
+};
+
+// ######## 
+// ## Some code is omitted.
+// ########
+```
+
+##### **[ngx_http_small_light_module.h](./src/ngx_http_small_light_module.h)**
+Add some declarations for bluropt flag such as the minimum image size to apply the resizing mechanism in the function.
+```c
+// ######## 
+// ## Some code is omitted.
+// ########
+#define NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_AVIF 65536
+
+#define NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE 15    <== Add this line
+
+#define NGX_HTTP_SMALL_LIGHT_PARAM_GET(hash, k) \
+    ngx_hash_find(hash, ngx_hash_key_lc((u_char *)k, ngx_strlen(k)), (u_char *)k, ngx_strlen(k))
+// ######## 
+// ## Some code is omitted.
+// ########
+```
+
+##### **[ngx_http_small_light_imagemagick.c](./src/ngx_http_small_light_imagemagick.c)**
+Add the main function for bluropt flag.
+```c
+// ######## 
+// ## Some code is omitted.
+// ########
+ngx_int_t ngx_http_small_light_imagemagick_process(
+    ngx_http_request_t *r, 
+    ngx_http_small_light_ctx_t *ctx
+) {
+    // ######## 
+    // ## Some code is omitted.
+    // ########
+
+// ############################
+// ######## Start adding code here 
+    /* optimized blur. */
+    bluropt_flag = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "bluropt"));
+    if (bluropt_flag != 0) {
+        // Resize image to 10% if image width and height are larger than 15px.
+        if (
+            iw > NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE 
+            && ih > NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE
+        ) {
+            status = MagickResizeImage(ictx->wand, iw/10, ih/10, CubicFilter);
+            if (status == MagickFalse) {
+                r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+                DestroyString(of_orig);
+                return NGX_ERROR;
+            }
+        }
+        
+
+        // Set background color.
+        bg_color = NewPixelWand();
+        PixelSetColor(bg_color, "white");
+        MagickSetImageBackgroundColor(ictx->wand, bg_color);
+
+        // Flatten the image to handle if image has multiple layers.
+        merge_wand = NewMagickWand();
+        merge_wand = MagickMergeImageLayers(ictx->wand, FlattenLayer);
+        if (merge_wand == NULL) {
+            r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            DestroyPixelWand(bg_color);
+            DestroyMagickWand(merge_wand);
+            DestroyString(of_orig);
+            return NGX_ERROR;
+        }
+        ictx->wand = CloneMagickWand(merge_wand);
+
+        // Strip image from all profiles and comments.
+        MagickStripImage(ictx->wand);
+
+        // Unsharp mask.
+        status = MagickUnsharpMaskImage(ictx->wand, 0.25, 0.08, 8.3, 0.045);
+        if (status == MagickFalse) {
+            r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            DestroyPixelWand(bg_color);
+            DestroyMagickWand(merge_wand);
+            DestroyString(of_orig);
+            return NGX_ERROR;
+        }
+        
+        // Set image compression quality.
+        status = MagickSetImageCompressionQuality(ictx->wand, 35);
+        if (status == MagickFalse) {
+            r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            DestroyPixelWand(bg_color);
+            DestroyMagickWand(merge_wand);
+            DestroyString(of_orig);
+            return NGX_ERROR;
+        }
+        
+        // Set PNG options.
+        MagickSetOption(ictx->wand, "png:compression-filter", "5");
+        MagickSetOption(ictx->wand, "png:compression-level", "9");
+        MagickSetOption(ictx->wand, "png:compression-strategy", "1");
+        MagickSetOption(ictx->wand, "png:exclude-chunk", "all");
+
+        // Blur image using Gaussian blur.
+        status = MagickGaussianBlurImage(ictx->wand, 0, 4.5);
+        if (status == MagickFalse) {
+            r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            DestroyPixelWand(bg_color);
+            DestroyMagickWand(merge_wand);
+            DestroyString(of_orig);
+            return NGX_ERROR;
+        }
+        
+        // Resize image to 1000% if image width and height are larger than 15px.
+        if (
+            iw > NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE 
+            && ih > NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE
+        ) {
+            status = MagickResizeImage(ictx->wand, iw, ih, CubicFilter);
+            if (status == MagickFalse) {
+                r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+                DestroyPixelWand(bg_color);
+                DestroyMagickWand(merge_wand);
+                DestroyString(of_orig);
+                return NGX_ERROR;
+            }
+        }
+        
+        DestroyPixelWand(bg_color);
+        DestroyMagickWand(merge_wand);
+    }
+// ######## Stop adding code here
+// ############################
+
+    // ######## 
+    // ## Some code is omitted.
+    // ########
+}
+// ######## 
+// ## Some code is omitted.
+// ########
+```
+

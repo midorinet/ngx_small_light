@@ -102,7 +102,7 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
     ngx_http_small_light_imagemagick_ctx_t *ictx;
     ngx_http_small_light_image_size_t       sz;
     MagickBooleanType                       status;
-    int                                     rmprof_flg, progressive_flg, cmyk2rgb_flg;
+    int                                     rmprof_flg, progressive_flg, cmyk2rgb_flg, bluropt_flag;
     double                                  iw, ih, q;
     char                                   *unsharp, *sharpen, *blur, *of, *of_orig;
     MagickWand                             *canvas_wand, *canvas_bg_wand, *source_wand;
@@ -110,13 +110,12 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
     PixelWand                              *bg_color, *canvas_color, *border_color;
     GeometryInfo                            geo;
     ngx_fd_t                                fd;
-    MagickWand                             *icon_wand;
+    MagickWand                             *icon_wand, *merge_wand;
     u_char                                 *p, *embedicon;
     size_t                                  embedicon_path_len, embedicon_len, sled_image_size;
     ngx_int_t                               type;
     u_char                                  jpeg_size_opt[32], embedicon_path[256];
     ColorspaceType                          color_space;
-    ExceptionInfo                           *exception;
 #if MagickLibVersion >= 0x690
     int                                     autoorient_flg, backgroundfill_flg;
 #endif
@@ -342,8 +341,6 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
 
         ngx_http_small_light_adjust_canvas_image_offset(&sz);
 
-        // TODO: Not sure if this work. Need to check ngx_small_light with older ImageMagick
-        // check background fill
         backgroundfill_flg = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "backgroundfill"));
         if (backgroundfill_flg == 1) {
 
@@ -352,23 +349,12 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
             MagickTrimImage(ictx->wand, 1.0);
 
             canvas_bg_wand = CloneMagickWand(ictx->wand);
-            // NOTE: Deprecated function, number of parameters changed.
-            // MagickResizeImage(canvas_bg_wand, sz.cw/4, sz.ch/4, LanczosFilter, 1.0);
             MagickResizeImage(canvas_bg_wand, sz.cw/4, sz.ch/4, LanczosFilter);
             MagickGaussianBlurImage(canvas_bg_wand, 0, 1);
-            // NOTE: Deprecated function, number of parameters changed.
-            // MagickResizeImage(canvas_bg_wand, sz.cw*2, sz.ch*2, LanczosFilter, 1.0);
             MagickResizeImage(canvas_bg_wand, sz.cw*2, sz.ch*2, LanczosFilter);
-            // NOTE: Deprecated function, MagickSetImageOpacity is no longer supported.
-            // MagickSetImageOpacity(canvas_bg_wand, 0.5);
-            Image * bg_image = GetImageFromMagickWand(canvas_bg_wand);
-            exception = AcquireExceptionInfo();
-            SetImageAlpha(bg_image, 0.5, exception);
-            exception = DestroyExceptionInfo(exception);
-
+            MagickSetImageAlpha(canvas_bg_wand, 0.5);
 
             status = MagickCompositeImageGravity(canvas_wand, canvas_bg_wand, AtopCompositeOp, CenterGravity);
-
             if (status == MagickFalse) {
                 r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
                 DestroyMagickWand(canvas_wand);
@@ -408,11 +394,120 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
         }
     }
 
-    /* effects. */
+    /* optimized blur. */
+    bluropt_flag = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "bluropt"));
+    if (bluropt_flag != 0) {
+        // The blur in the form of command line is: 
+        /**
+         * convert test.jpg -resize 10% -background "#fff" -flatten -strip -filter Gaussian \ 
+         *      -unsharp 0.25x0.08+8.3+0.045 -quality 35 -define png:compression-filter=5 \ 
+         *      -define png:compression-level=9 -define png:compression-strategy=1 \
+         *      -define png:exclude-chunk=all  -define filter:sigma=4.5 -resize 1000% o-o-1.jpg
+         */
+
+        // Resize image to 10% if image width and height are larger than 15px.
+        if (
+            iw > NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE 
+            && ih > NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE
+        ) {
+            status = MagickResizeImage(ictx->wand, iw/10, ih/10, CubicFilter);
+            if (status == MagickFalse) {
+                r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+                DestroyString(of_orig);
+                return NGX_ERROR;
+            }
+        }
+        
+
+        // Set background color.
+        bg_color = NewPixelWand();
+        PixelSetColor(bg_color, "white");
+        MagickSetImageBackgroundColor(ictx->wand, bg_color);
+
+        // Flatten the image to handle if image has multiple layers.
+        merge_wand = NewMagickWand();
+        merge_wand = MagickMergeImageLayers(ictx->wand, FlattenLayer);
+        if (merge_wand == NULL) {
+            r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            DestroyPixelWand(bg_color);
+            DestroyMagickWand(merge_wand);
+            DestroyString(of_orig);
+            return NGX_ERROR;
+        }
+        ictx->wand = CloneMagickWand(merge_wand);
+
+        // Strip image from all profiles and comments.
+        MagickStripImage(ictx->wand);
+
+        // Unsharp mask.
+        status = MagickUnsharpMaskImage(ictx->wand, 0.25, 0.08, 8.3, 0.045);
+        if (status == MagickFalse) {
+            r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            DestroyPixelWand(bg_color);
+            DestroyMagickWand(merge_wand);
+            DestroyString(of_orig);
+            return NGX_ERROR;
+        }
+        
+        // Set image compression quality.
+        status = MagickSetImageCompressionQuality(ictx->wand, 35);
+        if (status == MagickFalse) {
+            r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            DestroyPixelWand(bg_color);
+            DestroyMagickWand(merge_wand);
+            DestroyString(of_orig);
+            return NGX_ERROR;
+        }
+        
+        // Set PNG options.
+        MagickSetOption(ictx->wand, "png:compression-filter", "5");
+        MagickSetOption(ictx->wand, "png:compression-level", "9");
+        MagickSetOption(ictx->wand, "png:compression-strategy", "1");
+        MagickSetOption(ictx->wand, "png:exclude-chunk", "all");
+
+        // size_t t = 0;
+        // unsigned char *blob = MagickGetImageBlob(ictx->wand, &t);
+        // MagickReadImageBlob(ictx->wand, blob, t);
+
+        // Blur image using Gaussian blur.
+        status = MagickGaussianBlurImage(ictx->wand, 0, 4.5);
+        if (status == MagickFalse) {
+            r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            DestroyPixelWand(bg_color);
+            DestroyMagickWand(merge_wand);
+            DestroyString(of_orig);
+            return NGX_ERROR;
+        }
+        
+        // Resize image to 1000% if image width and height are larger than 15px.
+        if (
+            iw > NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE 
+            && ih > NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE
+        ) {
+            status = MagickResizeImage(ictx->wand, iw, ih, CubicFilter);
+            if (status == MagickFalse) {
+                r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+                DestroyPixelWand(bg_color);
+                DestroyMagickWand(merge_wand);
+                DestroyString(of_orig);
+                return NGX_ERROR;
+            }
+        }
+        
+        DestroyPixelWand(bg_color);
+        DestroyMagickWand(merge_wand);
+    }
+
+    /* unsharp */
     unsharp = NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "unsharp");
     if (ngx_strlen(unsharp) > 0) {
         ParseGeometry(unsharp, &geo);
-        if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
+        if (bluropt_flag != 0) {
+            ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                            "As bluropt is set, unsharp is ignored. %s:%d",
+                            __FUNCTION__,
+                            __LINE__);
+        } else if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                             "As unsharp geometry is too large, ignored. %s:%d",
                             __FUNCTION__,
@@ -428,10 +523,16 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
         }
     }
 
+    /* sharpen. */
     sharpen = NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "sharpen");
     if (ngx_strlen(sharpen) > 0) {
         ParseGeometry(sharpen, &geo);
-        if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
+        if (bluropt_flag != 0) {
+            ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                            "As bluropt is set, sharpen is ignored. %s:%d",
+                            __FUNCTION__,
+                            __LINE__);
+        } else if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                             "As sharpen geometry is too large, ignored. %s:%d",
                             __FUNCTION__,
@@ -447,10 +548,16 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
         }
     }
 
+    /* blur. */
     blur = NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "blur");
     if (ngx_strlen(blur) > 0) {
         ParseGeometry(blur, &geo);
-        if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
+        if (bluropt_flag != 0) {
+            ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                            "As bluropt is set, blur is ignored. %s:%d",
+                            __FUNCTION__,
+                            __LINE__);
+        } else if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                             "As blur geometry is too large, ignored. %s:%d",
                             __FUNCTION__,
@@ -596,11 +703,11 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
                 ih > NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_WEBP) {
                 of = (char *)ngx_http_small_light_image_exts[ictx->type - 1];
                     ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                "width=%f or height=%f is too large for webp transformation, MAX SIZE WEBP : %d. Resetting type to %s",
-                iw, ih,
-                NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_WEBP,
-                of
-                );
+                        "width=%f or height=%f is too large for webp transformation, MAX SIZE WEBP : %d. Resetting type to %s",
+                        iw, ih,
+                        NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_WEBP,
+                        of
+                    );
             } else {
 #if defined(MAGICKCORE_WEBP_DELEGATE)
                 ictx->type = type;
@@ -634,6 +741,7 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
                     "AVIF is not supported %s:%d",
                     __FUNCTION__,
                     __LINE__);
+                
                 of = (char *)ngx_http_small_light_image_exts[ictx->type - 1];
 #endif
             }
