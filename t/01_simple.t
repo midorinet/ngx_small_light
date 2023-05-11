@@ -74,6 +74,44 @@ t::Util->test_nginx(sub {
             is($res->code, 500, "it should raise error");
         }
     };
+
+    subtest "bluroptimize", sub {
+        # Get original image
+        my $req = HTTP::Request->new(GET => '/small_light()/img/mikan.png');
+        my $res = $do_request->($req);
+        my $original_size = length($res->content);
+
+        subtest "JPG", sub {
+            $req = HTTP::Request->new(GET => '/small_light(of=jpg,p=bluroptimize)/img/mikan.png');
+            $res = $do_request->($req);
+            is($res->code, 200, "test code");
+            is($res->content_type, "image/jpeg", "content type ok");
+            my $size = length($res->content);
+            ok($size < $original_size, "size ok");
+            my ($width, $height, $format) = Image::Size::imgsize(\$res->content);
+            is($format, "JPG", 'format ok');
+        };
+
+        subtest "WEBP", sub {
+            $req = HTTP::Request->new(GET => '/small_light(of=webp,p=bluroptimize)/img/mikan.png');
+            $res = $do_request->($req);
+            is($res->code, 200, "test code");
+            is($res->content_type, "image/webp", "content type ok");
+            my $size = length($res->content);
+            ok($size < $original_size, "size ok");
+            my ($width, $height, $format) = Image::Size::imgsize(\$res->content);
+            is($format, "WEBP", 'format ok');
+        };
+
+        subtest "AVIF", sub {
+            $req = HTTP::Request->new(GET => '/small_light(of=avif,p=bluroptimize)/img/mikan.png');
+            $res = $do_request->($req);
+            is($res->code, 200, "test code");
+            is($res->content_type, "image/avif", "content type ok");
+            my $size = length($res->content);
+            ok($size < $original_size, "size ok");
+        };
+    };
 });
 
 done_testing();

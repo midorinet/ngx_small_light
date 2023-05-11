@@ -102,10 +102,10 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
     ngx_http_small_light_imagemagick_ctx_t *ictx;
     ngx_http_small_light_image_size_t       sz;
     MagickBooleanType                       status;
-    int                                     rmprof_flg, progressive_flg, cmyk2rgb_flg, bluropt_flag;
+    int                                     rmprof_flg, progressive_flg, cmyk2rgb_flg, bluroptimize_flag;
     double                                  iw, ih, q;
     char                                   *unsharp, *sharpen, *blur, *of, *of_orig;
-    MagickWand                             *canvas_wand, *canvas_bg_wand, *source_wand;
+    MagickWand                             *canvas_wand, *source_wand;
     DrawingWand                            *border_wand;
     PixelWand                              *bg_color, *canvas_color, *border_color;
     GeometryInfo                            geo;
@@ -117,7 +117,7 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
     u_char                                  jpeg_size_opt[32], embedicon_path[256];
     ColorspaceType                          color_space;
 #if MagickLibVersion >= 0x690
-    int                                     autoorient_flg, backgroundfill_flg;
+    int                                     autoorient_flg;
 #endif
    status = MagickFalse;
    ictx = (ngx_http_small_light_imagemagick_ctx_t *)ctx->ictx;
@@ -341,29 +341,6 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
 
         ngx_http_small_light_adjust_canvas_image_offset(&sz);
 
-        backgroundfill_flg = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "backgroundfill"));
-        if (backgroundfill_flg == 1) {
-
-            ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0, "TEST backgroundfill_flg:%d", backgroundfill_flg);
-            // first trim whitespace off the original image
-            MagickTrimImage(ictx->wand, 1.0);
-
-            canvas_bg_wand = CloneMagickWand(ictx->wand);
-            MagickResizeImage(canvas_bg_wand, sz.cw/4, sz.ch/4, LanczosFilter);
-            MagickGaussianBlurImage(canvas_bg_wand, 0, 1);
-            MagickResizeImage(canvas_bg_wand, sz.cw*2, sz.ch*2, LanczosFilter);
-            MagickSetImageAlpha(canvas_bg_wand, 0.5);
-
-            status = MagickCompositeImageGravity(canvas_wand, canvas_bg_wand, AtopCompositeOp, CenterGravity);
-            if (status == MagickFalse) {
-                r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
-                DestroyMagickWand(canvas_wand);
-                DestroyString(of_orig);
-                return NGX_ERROR;
-            }
-            DestroyMagickWand(canvas_bg_wand);
-
-        }
 
         status = MagickCompositeImage(
             canvas_wand,
@@ -395,8 +372,8 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
     }
 
     /* optimized blur. */
-    bluropt_flag = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "bluropt"));
-    if (bluropt_flag != 0) {
+    bluroptimize_flag = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "bluroptimize"));
+    if (bluroptimize_flag != 0) {
         // The blur in the form of command line is: 
         /**
          * convert test.jpg -resize 10% -background "#fff" -flatten -strip -filter Gaussian \ 
@@ -500,14 +477,9 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
 
     /* unsharp */
     unsharp = NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "unsharp");
-    if (ngx_strlen(unsharp) > 0) {
+    if (ngx_strlen(unsharp) > 0 && bluroptimize_flag == 0) {
         ParseGeometry(unsharp, &geo);
-        if (bluropt_flag != 0) {
-            ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                            "As bluropt is set, unsharp is ignored. %s:%d",
-                            __FUNCTION__,
-                            __LINE__);
-        } else if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
+        if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                             "As unsharp geometry is too large, ignored. %s:%d",
                             __FUNCTION__,
@@ -525,14 +497,9 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
 
     /* sharpen. */
     sharpen = NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "sharpen");
-    if (ngx_strlen(sharpen) > 0) {
+    if (ngx_strlen(sharpen) > 0 && bluroptimize_flag == 0) {
         ParseGeometry(sharpen, &geo);
-        if (bluropt_flag != 0) {
-            ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                            "As bluropt is set, sharpen is ignored. %s:%d",
-                            __FUNCTION__,
-                            __LINE__);
-        } else if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
+        if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                             "As sharpen geometry is too large, ignored. %s:%d",
                             __FUNCTION__,
@@ -550,14 +517,9 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
 
     /* blur. */
     blur = NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "blur");
-    if (ngx_strlen(blur) > 0) {
+    if (ngx_strlen(blur) > 0 && bluroptimize_flag == 0) {
         ParseGeometry(blur, &geo);
-        if (bluropt_flag != 0) {
-            ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                            "As bluropt is set, blur is ignored. %s:%d",
-                            __FUNCTION__,
-                            __LINE__);
-        } else if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
+        if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
                             "As blur geometry is too large, ignored. %s:%d",
                             __FUNCTION__,

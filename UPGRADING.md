@@ -96,63 +96,6 @@ void ngx_http_small_light_imagemagick_terminus(void)
 // ########
 
 ```
-#### Check Background Fill
-Because the function **MagickResizeImage()** parameter is different between ImageMagick 6 and 7, we need to change the parameter to make it work with ImageMagick 7. The parameter `blurfactor` is removed in ImageMagick In order to change the blur factor, we need to use **MagickSetImageAlpha()** instead. From Imagick 7 and so on, blur is not accessible, instead we need to use Alpha to change the blur factor.
-```c
-/* create canvas then draw image to the canvas. */
-if (sz.cw > 0.0 && sz.ch > 0.0) {
-   
-   // ######## 
-   // ## Some code is omitted.
-   // ########
-
-    backgroundfill_flg = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "backgroundfill"));
-    if (backgroundfill_flg == 1) {
-
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0, "TEST backgroundfill_flg:%d", backgroundfill_flg);
-        // first trim whitespace off the original image
-        MagickTrimImage(ictx->wand, 1.0);
-
-        canvas_bg_wand = CloneMagickWand(ictx->wand);
-        MagickResizeImage(canvas_bg_wand, sz.cw/4, sz.ch/4, LanczosFilter, 1.0); <== This line needs to be modified
-        MagickGaussianBlurImage(canvas_bg_wand, 0, 1);
-        MagickResizeImage(canvas_bg_wand, sz.cw*2, sz.ch*2, LanczosFilter, 1.0); <= This line needs to be modified
-        MagickResizeImage(canvas_bg_wand, sz.cw*2, sz.ch*2, LanczosFilter);
-        MagickSetImageOpacity(canvas_bg_wand, 0.5); <== This line needs to be modified
-   
-   // ######## 
-   // ## Some code is omitted.
-   // ########
-}
-```
-
-to 
-```c
-/* create canvas then draw image to the canvas. */
-if (sz.cw > 0.0 && sz.ch > 0.0) {
-   
-   // ######## 
-   // ## Some code is omitted.
-   // ########
-
-    backgroundfill_flg = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "backgroundfill"));
-    if (backgroundfill_flg == 1) {
-
-        ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0, "TEST backgroundfill_flg:%d", backgroundfill_flg);
-        // first trim whitespace off the original image
-        MagickTrimImage(ictx->wand, 1.0);
-
-        canvas_bg_wand = CloneMagickWand(ictx->wand);
-        MagickResizeImage(canvas_bg_wand, sz.cw/4, sz.ch/4, LanczosFilter); <== This is modified result
-        MagickGaussianBlurImage(canvas_bg_wand, 0, 1);
-        MagickResizeImage(canvas_bg_wand, sz.cw*2, sz.ch*2, LanczosFilter); <== This is modified result
-        MagickSetImageAlpha(canvas_bg_wand, 0.5);
-   
-   // ######## 
-   // ## Some code is omitted.
-   // ########
-}
-```
 
 #### Embed Icon
 Because the function **MagickCompositeImageChannel()** is not supported in ImageMagick 7, we need to modify the code to use **MagickCompositeImage()** instead. In ImageMagick7 almost all image processing algorithms are now channel aware and all method channel analogs have been removed (e.g. **MagickCompositeImageChannel()**), they are no longer necessary. [Reference](https://imagemagick.org/script/porting.php)
@@ -402,10 +345,10 @@ The transformations applied to the image are as follows:
 7. Set the PNG compression filter to 5, PNG compression level to 9, PNG compression strategy to 1, and exclude all chunks from the PNG output.
 8.  Resize the image to 1000% of its size by using gaussian filter with sigma value of 4.5.
 
-Overall, the command resizes, blurs, sharpens, and compresses the image with various settings to achieve blurring with optimized size. To apply that function we will create a new flag called **bluropt**, if the flag was marked as "y" then the function will be applied, otherwise it will be ignored. To apply this change, we need to modify the following files:
+Overall, the command resizes, blurs, sharpens, and compresses the image with various settings to achieve blurring with optimized size. To apply that function we will create a new flag called **bluroptimize**, if the flag was marked as "y" then the function will be applied, otherwise it will be ignored. To apply this change, we need to modify the following files:
 
 ##### **[ngx_http_small_light_param.c](./src/ngx_http_small_light_param.c)**
-Add bluropt flag to the list of flags and arguments.
+Add bluroptimize flag to the list of flags and arguments.
 ```c
 // ######## 
 // ## Some code is omitted.
@@ -414,7 +357,7 @@ static const ngx_http_small_light_param_t ngx_http_small_light_params[] = {
     // ######## 
     // ## Some code is omitted.
     // ########
-    { ngx_string("bluropt"),  "n"}, <== Add this line
+    { ngx_string("bluroptimize"),  "n"}, <== Add this line
     // ######## 
     // ## Some code is omitted.
     // ########
@@ -424,7 +367,7 @@ static const ngx_str_t ngx_http_small_light_getparams[] = {
     // ######## 
     // ## Some code is omitted.
     // ########
-    ngx_string("arg_bluropt"),  <== Add this line
+    ngx_string("arg_bluroptimize"),  <== Add this line
     // ######## 
     // ## Some code is omitted.
     // ########
@@ -436,7 +379,7 @@ static const ngx_str_t ngx_http_small_light_getparams[] = {
 ```
 
 ##### **[ngx_http_small_light_module.h](./src/ngx_http_small_light_module.h)**
-Add some declarations for bluropt flag such as the minimum image size to apply the resizing mechanism in the function.
+Add some declarations for bluroptimize flag such as the minimum image size to apply the resizing mechanism in the function.
 ```c
 // ######## 
 // ## Some code is omitted.
@@ -453,7 +396,7 @@ Add some declarations for bluropt flag such as the minimum image size to apply t
 ```
 
 ##### **[ngx_http_small_light_imagemagick.c](./src/ngx_http_small_light_imagemagick.c)**
-Add the main function for bluropt flag.
+Add the main function for bluroptimize flag.
 ```c
 // ######## 
 // ## Some code is omitted.
@@ -469,8 +412,8 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
 // ############################
 // ######## Start adding code here 
     /* optimized blur. */
-    bluropt_flag = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "bluropt"));
-    if (bluropt_flag != 0) {
+    bluroptimize_flag = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "bluroptimize"));
+    if (bluroptimize_flag != 0) {
         // Resize image to 10% if image width and height are larger than 15px.
         if (
             iw > NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE 

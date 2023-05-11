@@ -432,7 +432,7 @@ If the animated GIF is given, `ngx_small_light` transforms only the first frame.
     ```
 4. Run this command to run tests.
     ```sh
-    cpanm --installdeps .
+    sudo cpanm --installdeps .
     NGINX_BIN=${nginx_prefix_dir}/sbin/nginx ./Build test
     # or
     NGINX_BIN=${nginx_prefix_dir}/sbin/nginx prove t/**/*.t
