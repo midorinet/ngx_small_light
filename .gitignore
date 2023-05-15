@@ -9,3 +9,5 @@ MYMETA.yml
 MANIFEST
 MANIFEST.SKIP.bak
 MANIFEST.bak
+logs/*
+!logs/.gitkeep

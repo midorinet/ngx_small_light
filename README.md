@@ -35,6 +35,7 @@ A dynamic image transformation module for [nginx](http://nginx.org/).
   - [Not supported animated GIF](#not-supported-animated-gif)
 - [Running Tests](#running-tests)
 - [Full Guide Installation](#full-guide-installation)
+  - [Docker](#docker)
   - [Nginx Small Light](#nginx-small-light)
     - [Dependencies](#dependencies-1)
     - [ImageMagick](#imagemagick)
@@ -249,41 +250,42 @@ when Content-Length is not set in response headers.
 
 ## Parameters for small_light function
 
-|Parameter  |Type  |Default    |Description                                     |ImageMagick|Imlib2|GD |
-|-----------|------|-----------|------------------------------------------------|-----------|------|---|
-|p          |string|           |named pattern of comma-delimited parameters     |        :o:|   :o:|:o:|
-|e          |string|imagemagick|engine name (imagemagick, imlib2, gd)           |           |      |   |
-|q          |number|           |quality                                         |        :o:|   :o:|:o:|
-|of         |string|           |output format (jpg, gif, png, webp)             |        :o:|   :o:|:o:|
-|jpeghint   |char  |n          |enable jpeg hinting (y, n)                      |        :o:|   :o:|:x:|
-|dw         |coord |sw         |destination width                               |        :o:|   :o:|:o:|
-|dh         |coord |sh         |destination height                              |        :o:|   :o:|:o:|
-|dx         |coord |sx         |destination x coordinate                        |        :o:|   :o:|:o:|
-|dy         |coord |sy         |destination y coordinate                        |        :o:|   :o:|:o:|
-|da         |char  |l          |destination aspect ratio contol (l, s, n)       |        :o:|   :o:|:o:|
-|ds         |char  |n          |destination scaling control (s, n)              |        :o:|   :o:|:o:|
-|cw         |number|           |canvas width                                    |        :o:|   :o:|:o:|
-|ch         |number|           |canvas height                                   |        :o:|   :o:|:o:|
-|cc         |color |000000     |canvas color                                    |        :o:|   :o:|:o:|
-|bw         |number|           |border width                                    |        :o:|   :o:|:o:|
-|bh         |number|           |border height                                   |        :o:|   :o:|:o:|
-|bc         |color |000000     |border color                                    |        :o:|   :o:|:o:|
-|sw         |coord |           |source witdh                                    |        :o:|   :o:|:o:|
-|sh         |coord |           |source height                                   |        :o:|   :o:|:o:|
-|sx         |coord |           |source x coordinate                             |        :o:|   :o:|:o:|
-|sy         |coord |           |source y coordinate                             |        :o:|   :o:|:o:|
-|pt         |char  |n          |pass through control (y, n)                     |        :o:|   :o:|:o:|
-|sharpen    |string|           |radius,sigma (e.g. 10x5)                        |        :o:|   :o:|:o:|
-|unsharp    |string|           |radius,sigma,amount,threshold (e.g 2x5+0.5+0)   |        :o:|   :x:|:x:|
-|blur       |string|           |radius,sigma (e.g. 5x10)                        |        :o:|   :o:|:x:|
-|embedicon  |string|           |embedded icon file in `small_light_material_dir`|        :o:|   :x:|:x:|
-|ix         |number|0          |embedded icon x coordinate                      |        :o:|   :x:|:x:|
-|iy         |number|0          |embedded icon y coordinate                      |        :o:|   :x:|:x:|
-|angle      |number|0          |angle of rotation (90, 180, 270)                |        :o:|   :o:|:o:|
-|progressive|char  |n          |make JPEG progressive (y, n)                    |        :o:|   :x:|:x:|
-|cmyk2rgb   |char  |n          |convert colorspace from CMYK to sRGB (y, n)     |        :o:|   :x:|:x:|
-|rmprof     |char  |n          |remove profile (y, n)                           |        :o:|   :x:|:x:|
-|autoorient |char  |n          |enable adjust image orientation automatically (y, n)  |  :o:|   :x:|:x:|
+|Parameter      |Type  |Default    |Description                                     |ImageMagick|Imlib2|GD |
+|---------------|------|-----------|------------------------------------------------|-----------|------|---|
+|p              |string|           |named pattern of comma-delimited parameters     |        :o:|   :o:|:o:|
+|e              |string|imagemagick|engine name (imagemagick, imlib2, gd)           |           |      |   |
+|q              |number|           |quality                                         |        :o:|   :o:|:o:|
+|of             |string|           |output format (jpg, gif, png, webp)             |        :o:|   :o:|:o:|
+|jpeghint       |char  |n          |enable jpeg hinting (y, n)                      |        :o:|   :o:|:x:|
+|dw             |coord |sw         |destination width                               |        :o:|   :o:|:o:|
+|dh             |coord |sh         |destination height                              |        :o:|   :o:|:o:|
+|dx             |coord |sx         |destination x coordinate                        |        :o:|   :o:|:o:|
+|dy             |coord |sy         |destination y coordinate                        |        :o:|   :o:|:o:|
+|da             |char  |l          |destination aspect ratio contol (l, s, n)       |        :o:|   :o:|:o:|
+|ds             |char  |n          |destination scaling control (s, n)              |        :o:|   :o:|:o:|
+|cw             |number|           |canvas width                                    |        :o:|   :o:|:o:|
+|ch             |number|           |canvas height                                   |        :o:|   :o:|:o:|
+|cc             |color |000000     |canvas color                                    |        :o:|   :o:|:o:|
+|bw             |number|           |border width                                    |        :o:|   :o:|:o:|
+|bh             |number|           |border height                                   |        :o:|   :o:|:o:|
+|bc             |color |000000     |border color                                    |        :o:|   :o:|:o:|
+|sw             |coord |           |source witdh                                    |        :o:|   :o:|:o:|
+|sh             |coord |           |source height                                   |        :o:|   :o:|:o:|
+|sx             |coord |           |source x coordinate                             |        :o:|   :o:|:o:|
+|sy             |coord |           |source y coordinate                             |        :o:|   :o:|:o:|
+|pt             |char  |n          |pass through control (y, n)                     |        :o:|   :o:|:o:|
+|sharpen        |string|           |radius,sigma (e.g. 10x5)                        |        :o:|   :o:|:o:|
+|unsharp        |string|           |radius,sigma,amount,threshold (e.g 2x5+0.5+0)   |        :o:|   :x:|:x:|
+|blur           |string|           |radius,sigma (e.g. 5x10)                        |        :o:|   :o:|:x:|
+|bluroptimize   |char  |n          |optimize blur (y, n)                            |        :o:|   :o:|:x:|
+|embedicon      |string|           |embedded icon file in `small_light_material_dir`|        :o:|   :x:|:x:|
+|ix             |number|0          |embedded icon x coordinate                      |        :o:|   :x:|:x:|
+|iy             |number|0          |embedded icon y coordinate                      |        :o:|   :x:|:x:|
+|angle          |number|0          |angle of rotation (90, 180, 270)                |        :o:|   :o:|:o:|
+|progressive    |char  |n          |make JPEG progressive (y, n)                    |        :o:|   :x:|:x:|
+|cmyk2rgb       |char  |n          |convert colorspace from CMYK to sRGB (y, n)     |        :o:|   :x:|:x:|
+|rmprof         |char  |n          |remove profile (y, n)                           |        :o:|   :x:|:x:|
+|autoorient     |char  |n          |enable adjust image orientation automatically (y, n)  |  :o:|   :x:|:x:|
 
 The values of `da` are `l` and `s` and `n`. These present the meanings below.
 
@@ -440,6 +442,20 @@ If the animated GIF is given, `ngx_small_light` transforms only the first frame.
 
 # Full Guide Installation
 To see what changes have been made to the original nginx_small_light or nginx, please see the [UPGRADING](UPGRADING.md) file.
+## Docker
+To run the application using docker, you can use the following commands:
+```bash
+docker-compose up -d
+```
+To stop the application, you can use the following commands:
+```bash
+docker-compose down
+```
+In [**docker-compose.yml**](./docker-compose.yml) file, we have 2 ports forwarded:
+- **8084**: the port for single nginx_small_light
+- **8085**: the port for nginx_small_light with juragan cdn like's configuration
+
+Please make sure that the ports are not used by other applications, otherwise you can change the port manually.
 ## Nginx Small Light
 nginx_small_light is a module for nginx that can manipulate images with help of ImageMagick. To use nginx_small_light we need to install ImageMagick with enabled webp and avif support, install PCRE, prepare nginx_small_light, and install nginx with nginx_small_light module.
 
@@ -458,7 +474,7 @@ In order to enable webp and avif support, we need to install some additional lib
 2. Enable avif support by installing libheif and libaom (aom is a codec library for AV1F video encoding and decoding)
    1. Install libheif dependencies.
         ```bash
-        sudo apt-get install libde265-dev libx265-dev libjpeg-dev libtool
+        sudo apt-get install libde265-dev libx265-dev x265 libjpeg-dev libtool
         ```
    2. Clone libheif.
         ```bash

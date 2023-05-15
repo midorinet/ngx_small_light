@@ -24,7 +24,6 @@
 #define NGX_HTTP_SMALL_LIGHT_IMAGEMAGICK_H
 
 #include <MagickWand/MagickWand.h>
-#include <MagickCore/image.h>
 
 #include "ngx_http_small_light_module.h"
 
