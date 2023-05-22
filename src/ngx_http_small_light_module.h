@@ -38,8 +38,12 @@
 #define NGX_HTTP_SMALL_LIGHT_IMAGE_GIF  2
 #define NGX_HTTP_SMALL_LIGHT_IMAGE_PNG  3
 #define NGX_HTTP_SMALL_LIGHT_IMAGE_WEBP 4
+#define NGX_HTTP_SMALL_LIGHT_IMAGE_AVIF 5
 
 #define NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_WEBP 16383
+#define NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_AVIF 65536
+
+#define NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE 15
 
 #define NGX_HTTP_SMALL_LIGHT_PARAM_GET(hash, k) \
     ngx_hash_find(hash, ngx_hash_key_lc((u_char *)k, ngx_strlen(k)), (u_char *)k, ngx_strlen(k))

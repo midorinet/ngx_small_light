@@ -23,7 +23,7 @@
 #ifndef NGX_HTTP_SMALL_LIGHT_IMAGEMAGICK_H
 #define NGX_HTTP_SMALL_LIGHT_IMAGEMAGICK_H
 
-#include <wand/MagickWand.h>
+#include <MagickWand/MagickWand.h>
 
 #include "ngx_http_small_light_module.h"
 

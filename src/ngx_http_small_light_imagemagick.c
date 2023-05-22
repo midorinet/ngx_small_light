@@ -1,25 +1,25 @@
 /**
-   Copyright (c) 2012-2016 Tatsuhiko Kubo <cubicdaiya@gmail.com>
-   Copyright (c) 1996-2011 livedoor Co.,Ltd.
+  Copyright (c) 2012-2016 Tatsuhiko Kubo <cubicdaiya@gmail.com>
+  Copyright (c) 1996-2011 livedoor Co.,Ltd.
 
-   Permission is hereby granted, free of charge, to any person obtaining a copy
-   of this software and associated documentation files (the "Software"), to deal
-   in the Software without restriction, including without limitation the rights
-   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-   copies of the Software, and to permit persons to whom the Software is
-   furnished to do so, subject to the following conditions:
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-   THE SOFTWARE.
- */
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
+*/
 
 #include "ngx_http_small_light_imagemagick.h"
 #include "ngx_http_small_light_size.h"
@@ -29,10 +29,11 @@
 extern const char *ngx_http_small_light_image_exts[];
 extern const char *ngx_http_small_light_image_types[];
 
-void ngx_http_small_light_imagemagick_adjust_image_offset(ngx_http_request_t *r,
-                                                          ngx_http_small_light_imagemagick_ctx_t *ictx,
-                                                          ngx_http_small_light_image_size_t *sz)
-{
+void ngx_http_small_light_imagemagick_adjust_image_offset(
+    ngx_http_request_t *r,
+    ngx_http_small_light_imagemagick_ctx_t *ictx,
+    ngx_http_small_light_image_size_t *sz
+) {
     MagickBooleanType status;
     size_t            w, h;
     ssize_t           x, y;
@@ -40,9 +41,9 @@ void ngx_http_small_light_imagemagick_adjust_image_offset(ngx_http_request_t *r,
     status = MagickGetImagePage(ictx->wand, &w, &h, &x, &y);
     if (status == MagickFalse) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "failed to get image page %s:%d",
-                      __FUNCTION__,
-                      __LINE__);
+                        "failed to get image page %s:%d",
+                        __FUNCTION__,
+                        __LINE__);
         return;
     }
 
@@ -54,8 +55,10 @@ void ngx_http_small_light_imagemagick_adjust_image_offset(ngx_http_request_t *r,
     }
 }
 
-ngx_int_t ngx_http_small_light_imagemagick_init(ngx_http_request_t *r, ngx_http_small_light_ctx_t *ctx)
-{
+ngx_int_t ngx_http_small_light_imagemagick_init(
+    ngx_http_request_t *r, 
+    ngx_http_small_light_ctx_t *ctx
+) {
     ngx_http_small_light_imagemagick_ctx_t *ictx;
     ictx            = (ngx_http_small_light_imagemagick_ctx_t *)ctx->ictx;
     ictx->wand      = NewMagickWand();
@@ -65,9 +68,9 @@ ngx_int_t ngx_http_small_light_imagemagick_init(ngx_http_request_t *r, ngx_http_
     ictx->complete  = 0;
     if (ictx->type == NGX_HTTP_SMALL_LIGHT_IMAGE_NONE) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "failed to get image type %s:%d",
-                      __FUNCTION__,
-                      __LINE__);
+                        "failed to get image type %s:%d",
+                        __FUNCTION__,
+                        __LINE__);
         return NGX_ERROR;
     }
     return NGX_OK;
@@ -87,46 +90,45 @@ void ngx_http_small_light_imagemagick_term(void *data)
     DestroyMagickWand(ictx->wand);
 }
 
-/** 
- * following original functions are brought from
- * mod_small_light(Dynamic image transformation module for Apache2) and customed
- */
+/**
+* following original functions are brought from
+* mod_small_light(Dynamic image transformation module for Apache2) and customed
+*/
 
-ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_http_small_light_ctx_t *ctx)
-{
+ngx_int_t ngx_http_small_light_imagemagick_process(
+    ngx_http_request_t *r, 
+    ngx_http_small_light_ctx_t *ctx
+) {
     ngx_http_small_light_imagemagick_ctx_t *ictx;
     ngx_http_small_light_image_size_t       sz;
     MagickBooleanType                       status;
-    int                                     rmprof_flg, progressive_flg, cmyk2rgb_flg;
+    int                                     rmprof_flg, progressive_flg, cmyk2rgb_flg, bluroptimize_flag;
     double                                  iw, ih, q;
     char                                   *unsharp, *sharpen, *blur, *of, *of_orig;
-    MagickWand                             *trans_wand, *canvas_wand, *canvas_bg_wand, *source_wand;
+    MagickWand                             *canvas_wand, *source_wand;
     DrawingWand                            *border_wand;
     PixelWand                              *bg_color, *canvas_color, *border_color;
     GeometryInfo                            geo;
     ngx_fd_t                                fd;
-    MagickWand                             *icon_wand;
+    MagickWand                             *icon_wand, *merge_wand;
     u_char                                 *p, *embedicon;
     size_t                                  embedicon_path_len, embedicon_len, sled_image_size;
     ngx_int_t                               type;
-    u_char                                  jpeg_size_opt[32], crop_geo[128], size_geo[128], embedicon_path[256];
+    u_char                                  jpeg_size_opt[32], embedicon_path[256];
     ColorspaceType                          color_space;
 #if MagickLibVersion >= 0x690
-    int                                     autoorient_flg, backgroundfill_flg;
+    int                                     autoorient_flg;
 #endif
+   status = MagickFalse;
+   ictx = (ngx_http_small_light_imagemagick_ctx_t *)ctx->ictx;
 
+   /* adjust image size */
+   ngx_http_small_light_calc_image_size(r, ctx, &sz, 10000.0, 10000.0);
 
-    status = MagickFalse;
-
-    ictx = (ngx_http_small_light_imagemagick_ctx_t *)ctx->ictx;
-
-    /* adjust image size */
-    ngx_http_small_light_calc_image_size(r, ctx, &sz, 10000.0, 10000.0);
-
-    /* prepare */
-    if (sz.jpeghint_flg != 0 &&
-        sz.dw != NGX_HTTP_SMALL_LIGHT_COORD_INVALID_VALUE &&
-        sz.dh != NGX_HTTP_SMALL_LIGHT_COORD_INVALID_VALUE)
+   /* prepare */
+   if (sz.jpeghint_flg != 0 &&
+       sz.dw != NGX_HTTP_SMALL_LIGHT_COORD_INVALID_VALUE &&
+       sz.dh != NGX_HTTP_SMALL_LIGHT_COORD_INVALID_VALUE) 
     {
         p = ngx_snprintf((u_char *)jpeg_size_opt, sizeof(jpeg_size_opt) - 1, "%dx%d", (ngx_int_t)sz.dw, (ngx_int_t)sz.dh);
         *p = '\0';
@@ -134,30 +136,30 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
         MagickSetOption(ictx->wand, "jpeg:size", (char *)jpeg_size_opt);
     }
 
-    /* load image. */
-    status = MagickReadImageBlob(ictx->wand, (void *)ictx->image, ictx->image_len);
-    if (status == MagickFalse) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "couldn't read image %s:%d",
-                      __FUNCTION__,
-                      __LINE__);
-        return NGX_ERROR;
-    }
+   /* load image. */
+   status = MagickReadImageBlob(ictx->wand, (void *)ictx->image, ictx->image_len);
+   if (status == MagickFalse) {
+       ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                     "couldn't read image %s:%d",
+                     __FUNCTION__,
+                     __LINE__);
+       return NGX_ERROR;
+   }
 
-    /* set the first frame for animated-GIF */
-    MagickSetFirstIterator(ictx->wand);
+   /* set the first frame for animated-GIF */
+   MagickSetFirstIterator(ictx->wand);
 
-    color_space = MagickGetImageColorspace(ictx->wand);
+   color_space = MagickGetImageColorspace(ictx->wand);
 
-    /* remove all profiles */
+   /* remove all profiles */
     rmprof_flg = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "rmprof"));
     if (rmprof_flg != 0) {
         status = MagickProfileImage(ictx->wand, "*", NULL, 0);
         if (status == MagickFalse) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "couldn't profiling image %s:%d",
-                          __FUNCTION__,
-                          __LINE__);
+                            "couldn't profiling image %s:%d",
+                            __FUNCTION__,
+                            __LINE__);
         }
     }
 
@@ -193,10 +195,10 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
             break;
         default:
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "image not rotated. 'angle'(%ui) must be 90 or 180 or 270. %s:%d",
-                          sz.angle,
-                          __FUNCTION__,
-                          __LINE__);
+                            "image not rotated. 'angle'(%ui) must be 90 or 180 or 270. %s:%d",
+                            sz.angle,
+                            __FUNCTION__,
+                            __LINE__);
             break;
         }
 
@@ -204,15 +206,15 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
     }
 
     /* fix stretch image when jpeghint=y */
-   if (sz.jpeghint_flg != 0) {
+    if (sz.jpeghint_flg != 0) {
         /* calc source size. */
         source_wand = NewMagickWand();
         status = MagickReadImageBlob(source_wand, (void *)ictx->image, ictx->image_len);
         if (status == MagickFalse) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "couldn't read image %s:%d",
-                          __FUNCTION__,
-                          __LINE__);
+                            "couldn't read image %s:%d",
+                            __FUNCTION__,
+                            __LINE__);
             return NGX_ERROR;
         }
 
@@ -231,18 +233,21 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
 
         iw = (double)MagickGetImageWidth(source_wand);
         ih = (double)MagickGetImageHeight(source_wand);
-        ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, 
-                      "source width:%f,source height:%f,dw:%f,dh:%f",
-                      iw, ih, sz.dw, sz.dh);
+        ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0,
+                        "source width:%f,source height:%f,dw:%f,dh:%f",
+                        iw, ih, sz.dw, sz.dh);
         if(iw < sz.dw || ih < sz.dh) {
-             MagickAdaptiveResizeImage(ictx->wand, iw, ih);
+                MagickAdaptiveResizeImage(ictx->wand, iw, ih);
         }
         DestroyMagickWand(source_wand);
     }
 
-    /* calc size. */
+   /* calc size. */
     iw = (double)MagickGetImageWidth(ictx->wand);
     ih = (double)MagickGetImageHeight(ictx->wand);
+    ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
+                    "source width:%f,source height:%f,dw:%f,dh:%f",
+                    iw, ih, sz.dw, sz.dh);
 
     /* dpr adjustment */
     if (sz.img_dpr > 1 && (iw < sz.dw || ih < sz.dh )) {
@@ -253,8 +258,8 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
         sz.scale_flg = 1;
 
         ngx_log_error(NGX_LOG_NOTICE, r->connection->log, 0,
-                      "dpr info:iw=%f,ih=%f,sw=%f,sh=%f,resized source to %f x %f",
-                      iw, ih, sz.sw, sz.sh, iw*sz.img_dpr, ih*sz.img_dpr);
+                        "dpr info:iw=%f,ih=%f,sw=%f,sh=%f,resized source to %f x %f",
+                        iw, ih, sz.sw, sz.sh, iw*sz.img_dpr, ih*sz.img_dpr);
 
     }
 
@@ -282,24 +287,23 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
         sz.dh = sz.sh;
     }
 
-
-
     /* crop, scale. */
     if (sz.scale_flg != 0) {
-        p = ngx_snprintf(crop_geo, sizeof(crop_geo) - 1, "%f!x%f!+%f+%f", sz.sw, sz.sh, sz.sx, sz.sy);
-        *p = '\0';
-        p = ngx_snprintf(size_geo, sizeof(size_geo) - 1, "%f!x%f!",       sz.dw, sz.dh);
-        *p = '\0';
-        ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "crop_geo:%s", crop_geo);
-        ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "size_geo:%s", size_geo);
-        trans_wand = MagickTransformImage(ictx->wand, (char *)crop_geo, (char *)size_geo);
-        if (trans_wand == NULL || trans_wand == ictx->wand) {
+        /* crop */
+        status = MagickCropImage(ictx->wand, sz.sw, sz.sh, sz.sx, sz.sy);
+        if (status == MagickFalse) {
             r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
             DestroyString(of_orig);
             return NGX_ERROR;
         }
-        DestroyMagickWand(ictx->wand);
-        ictx->wand = trans_wand;
+
+        /* scale */
+        status = MagickResizeImage(ictx->wand, sz.dw, sz.dh, LanczosFilter);
+        if (status == MagickFalse) {
+            r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            DestroyString(of_orig);
+            return NGX_ERROR;
+        }
     }
 
     /* create canvas then draw image to the canvas. */
@@ -337,32 +341,15 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
 
         ngx_http_small_light_adjust_canvas_image_offset(&sz);
 
-        // check background fill
-        backgroundfill_flg = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "backgroundfill"));
-        if (backgroundfill_flg == 1) {
 
-            // first trim whitespace off the original image
-            MagickTrimImage(ictx->wand, 1.0);
-
-            canvas_bg_wand = CloneMagickWand(ictx->wand);
-            MagickResizeImage(canvas_bg_wand, sz.cw/4, sz.ch/4, LanczosFilter, 1.0);
-            MagickGaussianBlurImage(canvas_bg_wand, 0, 1);
-            MagickResizeImage(canvas_bg_wand, sz.cw*2, sz.ch*2, LanczosFilter, 1.0);
-            MagickSetImageOpacity(canvas_bg_wand, 0.5);
-
-            status = MagickCompositeImageGravity(canvas_wand, canvas_bg_wand, AtopCompositeOp, CenterGravity);
-
-            if (status == MagickFalse) {
-                r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
-                DestroyMagickWand(canvas_wand);
-                DestroyString(of_orig);
-                return NGX_ERROR;
-            }
-            DestroyMagickWand(canvas_bg_wand);
-
-        }
-
-        status = MagickCompositeImage(canvas_wand, ictx->wand, AtopCompositeOp, sz.dx, sz.dy);
+        status = MagickCompositeImage(
+            canvas_wand,
+            ictx->wand,
+            AtopCompositeOp,
+            MagickFalse,
+            sz.dx,
+            sz.dy
+        );
         if (status == MagickFalse) {
             r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
             DestroyMagickWand(canvas_wand);
@@ -384,60 +371,166 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
         }
     }
 
-    /* effects. */
+    /* optimized blur. */
+    bluroptimize_flag = ngx_http_small_light_parse_flag(NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "bluroptimize"));
+    if (bluroptimize_flag != 0) {
+        // The blur in the form of command line is: 
+        /**
+         * convert test.jpg -resize 10% -background "#fff" -flatten -strip -filter Gaussian \ 
+         *      -unsharp 0.25x0.08+8.3+0.045 -quality 35 -define png:compression-filter=5 \ 
+         *      -define png:compression-level=9 -define png:compression-strategy=1 \
+         *      -define png:exclude-chunk=all  -define filter:sigma=4.5 -resize 1000% o-o-1.jpg
+         */
+
+        // Resize image to 10% if image width and height are larger than 15px.
+        if (
+            iw > NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE 
+            && ih > NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE
+        ) {
+            status = MagickResizeImage(ictx->wand, iw/10, ih/10, CubicFilter);
+            if (status == MagickFalse) {
+                r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+                DestroyString(of_orig);
+                return NGX_ERROR;
+            }
+        }
+        
+
+        // Set background color.
+        bg_color = NewPixelWand();
+        PixelSetColor(bg_color, "white");
+        MagickSetImageBackgroundColor(ictx->wand, bg_color);
+
+        // Flatten the image to handle if image has multiple layers.
+        merge_wand = NewMagickWand();
+        merge_wand = MagickMergeImageLayers(ictx->wand, FlattenLayer);
+        if (merge_wand == NULL) {
+            r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            DestroyPixelWand(bg_color);
+            DestroyMagickWand(merge_wand);
+            DestroyString(of_orig);
+            return NGX_ERROR;
+        }
+        ictx->wand = CloneMagickWand(merge_wand);
+
+        // Strip image from all profiles and comments.
+        MagickStripImage(ictx->wand);
+
+        // Unsharp mask.
+        status = MagickUnsharpMaskImage(ictx->wand, 0.25, 0.08, 8.3, 0.045);
+        if (status == MagickFalse) {
+            r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            DestroyPixelWand(bg_color);
+            DestroyMagickWand(merge_wand);
+            DestroyString(of_orig);
+            return NGX_ERROR;
+        }
+        
+        // Set image compression quality.
+        status = MagickSetImageCompressionQuality(ictx->wand, 35);
+        if (status == MagickFalse) {
+            r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            DestroyPixelWand(bg_color);
+            DestroyMagickWand(merge_wand);
+            DestroyString(of_orig);
+            return NGX_ERROR;
+        }
+        
+        // Set PNG options.
+        MagickSetOption(ictx->wand, "png:compression-filter", "5");
+        MagickSetOption(ictx->wand, "png:compression-level", "9");
+        MagickSetOption(ictx->wand, "png:compression-strategy", "1");
+        MagickSetOption(ictx->wand, "png:exclude-chunk", "all");
+
+        // size_t t = 0;
+        // unsigned char *blob = MagickGetImageBlob(ictx->wand, &t);
+        // MagickReadImageBlob(ictx->wand, blob, t);
+
+        // Blur image using Gaussian blur.
+        status = MagickGaussianBlurImage(ictx->wand, 0, 4.5);
+        if (status == MagickFalse) {
+            r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+            DestroyPixelWand(bg_color);
+            DestroyMagickWand(merge_wand);
+            DestroyString(of_orig);
+            return NGX_ERROR;
+        }
+        
+        // Resize image to 1000% if image width and height are larger than 15px.
+        if (
+            iw > NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE 
+            && ih > NGX_HTTP_SMALL_LIGHT_MINIMUM_IMAGE_SIZE_BLUR_OPTIMIZE
+        ) {
+            status = MagickResizeImage(ictx->wand, iw, ih, CubicFilter);
+            if (status == MagickFalse) {
+                r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
+                DestroyPixelWand(bg_color);
+                DestroyMagickWand(merge_wand);
+                DestroyString(of_orig);
+                return NGX_ERROR;
+            }
+        }
+        
+        DestroyPixelWand(bg_color);
+        DestroyMagickWand(merge_wand);
+    }
+
+    /* unsharp */
     unsharp = NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "unsharp");
-    if (ngx_strlen(unsharp) > 0) {
+    if (ngx_strlen(unsharp) > 0 && bluroptimize_flag == 0) {
         ParseGeometry(unsharp, &geo);
         if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                          "As unsharp geometry is too large, ignored. %s:%d",
-                          __FUNCTION__,
-                          __LINE__);
+                            "As unsharp geometry is too large, ignored. %s:%d",
+                            __FUNCTION__,
+                            __LINE__);
         } else {
             status = MagickUnsharpMaskImage(ictx->wand, geo.rho, geo.sigma, geo.xi, geo.psi);
             if (status == MagickFalse) {
                 ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                              "unsharp failed %s:%d",
-                              __FUNCTION__,
-                              __LINE__);
+                                "unsharp failed %s:%d",
+                                __FUNCTION__,
+                                __LINE__);
             }
         }
     }
 
+    /* sharpen. */
     sharpen = NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "sharpen");
-    if (ngx_strlen(sharpen) > 0) {
+    if (ngx_strlen(sharpen) > 0 && bluroptimize_flag == 0) {
         ParseGeometry(sharpen, &geo);
         if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                          "As sharpen geometry is too large, ignored. %s:%d",
-                          __FUNCTION__,
-                          __LINE__);
+                            "As sharpen geometry is too large, ignored. %s:%d",
+                            __FUNCTION__,
+                            __LINE__);
         } else {
             status = MagickSharpenImage(ictx->wand, geo.rho, geo.sigma);
             if (status == MagickFalse) {
                 ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                              "sharpen failed %s:%d",
-                              __FUNCTION__,
-                              __LINE__);
+                                "sharpen failed %s:%d",
+                                __FUNCTION__,
+                                __LINE__);
             }
         }
     }
 
+    /* blur. */
     blur = NGX_HTTP_SMALL_LIGHT_PARAM_GET_LIT(&ctx->hash, "blur");
-    if (ngx_strlen(blur) > 0) {
+    if (ngx_strlen(blur) > 0 && bluroptimize_flag == 0) {
         ParseGeometry(blur, &geo);
         if (geo.rho > ctx->radius_max || geo.sigma > ctx->sigma_max) {
             ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-                          "As blur geometry is too large, ignored. %s:%d",
-                          __FUNCTION__,
-                          __LINE__);
+                            "As blur geometry is too large, ignored. %s:%d",
+                            __FUNCTION__,
+                            __LINE__);
         } else {
             status = MagickBlurImage(ictx->wand, geo.rho, geo.sigma);
             if (status == MagickFalse) {
                 ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                              "blur failed %s:%d",
-                              __FUNCTION__,
-                              __LINE__);
+                                "blur failed %s:%d",
+                                __FUNCTION__,
+                                __LINE__);
             }
         }
     }
@@ -475,10 +568,10 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
     if (ctx->material_dir->len > 0 && ngx_strlen(embedicon) > 0) {
         if (ngx_strstrn((u_char *)embedicon, "/", 1 - 1)) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "invalid parameter 'embedicon':%s %s:%d",
-                          embedicon,
-                          __FUNCTION__,
-                          __LINE__);
+                            "invalid parameter 'embedicon':%s %s:%d",
+                            embedicon,
+                            __FUNCTION__,
+                            __LINE__);
             DestroyString(of_orig);
             return NGX_ERROR;
         }
@@ -487,10 +580,10 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
         embedicon_path_len = ctx->material_dir->len + ngx_strlen("/") + embedicon_len;
         if (embedicon_path_len > sizeof(embedicon_path) - 1) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "embedicon path is too long. maximun value is %z %s:%d",
-                          sizeof(embedicon_path) - 1,
-                          __FUNCTION__,
-                          __LINE__);
+                            "embedicon path is too long. maximun value is %z %s:%d",
+                            sizeof(embedicon_path) - 1,
+                            __FUNCTION__,
+                            __LINE__);
             DestroyString(of_orig);
             return NGX_ERROR;
         }
@@ -502,30 +595,30 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
 
         if ((fd = ngx_open_file(embedicon_path, NGX_FILE_RDONLY, NGX_FILE_OPEN, 0)) == NGX_INVALID_FILE) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "failed to open embeddedicon file:%s %s:%d",
-                          embedicon_path,
-                          __FUNCTION__,
-                          __LINE__);
+                            "failed to open embeddedicon file:%s %s:%d",
+                            embedicon_path,
+                            __FUNCTION__,
+                            __LINE__);
             DestroyString(of_orig);
             return NGX_ERROR;
         }
 
         if (ngx_close_file(fd) == NGX_FILE_ERROR) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "failed to close:%s %s:%d",
-                          embedicon_path,
-                          __FUNCTION__,
-                          __LINE__);
+                            "failed to close:%s %s:%d",
+                            embedicon_path,
+                            __FUNCTION__,
+                            __LINE__);
             DestroyString(of_orig);
             return NGX_ERROR;
         }
 
         if (ngx_strstrn(embedicon_path, "..", 2 - 1)) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "invalid embeddedicon_path:%s %s:%d",
-                          embedicon_path,
-                          __FUNCTION__,
-                          __LINE__);
+                            "invalid embeddedicon_path:%s %s:%d",
+                            embedicon_path,
+                            __FUNCTION__,
+                            __LINE__);
             DestroyString(of_orig);
             return NGX_ERROR;
         }
@@ -533,16 +626,16 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
         icon_wand = NewMagickWand();
         if (MagickReadImage(icon_wand, (char *)embedicon_path) == MagickFalse) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "failed to read embed icon image file:%s %s:%d",
-                          embedicon_path,
-                          __FUNCTION__,
-                          __LINE__);
+                            "failed to read embed icon image file:%s %s:%d",
+                            embedicon_path,
+                            __FUNCTION__,
+                            __LINE__);
             DestroyMagickWand(icon_wand);
             DestroyString(of_orig);
             return NGX_ERROR;
         }
 
-        MagickCompositeImageChannel(ictx->wand, AllChannels, icon_wand, OverCompositeOp, sz.ix, sz.iy);
+        MagickCompositeImage(ictx->wand, icon_wand, OverCompositeOp, MagickFalse, sz.ix, sz.iy);
         DestroyMagickWand(icon_wand);
     }
 
@@ -562,37 +655,75 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
         type = ngx_http_small_light_type(of);
         if (type == NGX_HTTP_SMALL_LIGHT_IMAGE_NONE) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "of is invalid(%s) %s:%d",
-                          of,
-                          __FUNCTION__,
-                          __LINE__);
+                            "of is invalid(%s) %s:%d",
+                            of,
+                            __FUNCTION__,
+                            __LINE__);
             of = (char *)ngx_http_small_light_image_exts[ictx->type - 1];
         } else if (type == NGX_HTTP_SMALL_LIGHT_IMAGE_WEBP) {
-            if( iw > NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_WEBP || 
+            if( iw > NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_WEBP ||
                 ih > NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_WEBP) {
                 of = (char *)ngx_http_small_light_image_exts[ictx->type - 1];
-                 ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-              "width=%f or height=%f is too large for webp transformation, MAX SIZE WEBP : %d. Resetting type to %s",
-                iw, ih, 
-                NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_WEBP,
-                of
-                );
+                    ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
+                        "width=%f or height=%f is too large for webp transformation, MAX SIZE WEBP : %d. Resetting type to %s",
+                        iw, ih,
+                        NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_WEBP,
+                        of
+                    );
             } else {
 #if defined(MAGICKCORE_WEBP_DELEGATE)
-            ictx->type = type;
+                ictx->type = type;
 #else
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "WebP is not supported %s:%d",
-                          __FUNCTION__,
-                          __LINE__);
+                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                            "WebP is not supported %s:%d",
+                            __FUNCTION__,
+                            __LINE__);
             of = (char *)ngx_http_small_light_image_exts[ictx->type - 1];
+#endif
+            }
+        } else if (type == NGX_HTTP_SMALL_LIGHT_IMAGE_AVIF) {
+            if (
+                iw > NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_AVIF ||
+                ih > NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_AVIF
+            ) {
+                of = (char *)ngx_http_small_light_image_exts[ictx->type - 1];
+                ngx_log_error(
+                    NGX_LOG_WARN, r->connection->log, 0,
+                    "width=%f or height=%f is too large for avif transformation, MAX SIZE AVIF : %d. Resetting type to %s",
+                    iw, ih,
+                    NGX_HTTP_SMALL_LIGHT_IMAGE_MAX_SIZE_AVIF,
+                    of
+                );
+            } else {
+#if defined(MAGICKCORE_HEIC_DELEGATE)
+                ictx->type = type;
+#else
+                ngx_log_error(
+                    NGX_LOG_ERR, r->connection->log, 0,
+                    "AVIF is not supported %s:%d",
+                    __FUNCTION__,
+                    __LINE__);
+                
+                of = (char *)ngx_http_small_light_image_exts[ictx->type - 1];
 #endif
             }
         } else {
             ictx->type = type;
         }
-        MagickSetFormat(ictx->wand, of);
-        ctx->of = ngx_http_small_light_image_types[ictx->type - 1];
+
+        // Even if the library supports the format, the encoder/decoder may not be available.
+        status = MagickSetFormat(ictx->wand, of);
+        if (status == MagickFalse) {
+            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                            "failed to set format(%s) %s:%d",
+                            of,
+                            __FUNCTION__,
+                            __LINE__);
+            MagickSetFormat(ictx->wand, of_orig);
+            ctx->of = ctx->inf;
+        } else {
+            ctx->of = ngx_http_small_light_image_types[ictx->type - 1];
+        }
     } else {
         MagickSetFormat(ictx->wand, of_orig);
         ctx->of = ctx->inf;
@@ -612,11 +743,13 @@ ngx_int_t ngx_http_small_light_imagemagick_process(ngx_http_request_t *r, ngx_ht
 
 void ngx_http_small_light_imagemagick_genesis(void)
 {
+    MagickCoreGenesis(NULL, MagickTrue);
     MagickWandGenesis();
 }
 
 void ngx_http_small_light_imagemagick_terminus(void)
 {
+    MagickCoreTerminus();
     MagickWandTerminus();
 }
 

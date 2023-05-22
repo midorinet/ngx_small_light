@@ -35,6 +35,8 @@ ngx_int_t ngx_http_small_light_type(const char *of)
         type = NGX_HTTP_SMALL_LIGHT_IMAGE_PNG;
     } else if (strcmp(of, "webp") == 0) {
         type = NGX_HTTP_SMALL_LIGHT_IMAGE_WEBP;
+    } else if (strcmp(of, "avif") == 0) {
+        type = NGX_HTTP_SMALL_LIGHT_IMAGE_AVIF;
     } else {
         type = NGX_HTTP_SMALL_LIGHT_IMAGE_NONE;
     }
@@ -67,6 +69,12 @@ ngx_int_t ngx_http_small_light_type_detect(u_char *image, size_t image_len)
     } else if (p[0] == 0x89 && p[1] == 'P'  && p[2] == 'N'  && p[3] == 'G' &&
                p[4] == 0x0d && p[5] == 0x0a && p[6] == 0x1a && p[7] == 0x0a) {
         return NGX_HTTP_SMALL_LIGHT_IMAGE_PNG;
+
+    } else if (p[0] == 0x00 && p[1] == 0x00 && p[2] == 0x00 && p[3] == 0x20 &&
+               p[4] == 0x66 && p[5] == 0x74 && p[6] == 0x79 && p[7] == 0x70 &&
+               p[8] == 0x61 && p[9] == 0x76 && p[10] == 0x69 && p[11] == 0x66 &&
+               p[12] == 0x00 && p[13] == 0x00 && p[14] == 0x00 && p[15] == 0x00) {
+        return NGX_HTTP_SMALL_LIGHT_IMAGE_AVIF;
     } else {
         webp_magic1 = ((uint32_t)p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
         webp_magic2 = ((uint32_t)p[8] << 24) | (p[9] << 16) | (p[10] << 8) | p[11];

@@ -1,0 +1,13 @@
+.vscode
+_build
+Build
+t/ngx_base/logs
+config
+MYMETA.json
+MYMETA.yml
+.vstags
+MANIFEST
+MANIFEST.SKIP.bak
+MANIFEST.bak
+logs/*
+!logs/.gitkeep
