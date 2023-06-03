@@ -402,7 +402,6 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
         MagickSetImageBackgroundColor(ictx->wand, bg_color);
 
         // Flatten the image to handle if image has multiple layers.
-        merge_wand = NewMagickWand();
         merge_wand = MagickMergeImageLayers(ictx->wand, FlattenLayer);
         if (merge_wand == NULL) {
             r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -411,17 +410,14 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
             DestroyString(of_orig);
             return NGX_ERROR;
         }
-        ictx->wand = CloneMagickWand(merge_wand);
-
-        // Strip image from all profiles and comments.
-        MagickStripImage(ictx->wand);
+        MagickCompositeImage(ictx->wand, merge_wand, OverCompositeOp, MagickFalse, 0, 0);
+        DestroyMagickWand(merge_wand);
+        DestroyPixelWand(bg_color);
 
         // Unsharp mask.
         status = MagickUnsharpMaskImage(ictx->wand, 0.25, 0.08, 8.3, 0.045);
         if (status == MagickFalse) {
             r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
-            DestroyPixelWand(bg_color);
-            DestroyMagickWand(merge_wand);
             DestroyString(of_orig);
             return NGX_ERROR;
         }
@@ -430,8 +426,6 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
         status = MagickSetImageCompressionQuality(ictx->wand, 35);
         if (status == MagickFalse) {
             r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
-            DestroyPixelWand(bg_color);
-            DestroyMagickWand(merge_wand);
             DestroyString(of_orig);
             return NGX_ERROR;
         }
@@ -442,16 +436,10 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
         MagickSetOption(ictx->wand, "png:compression-strategy", "1");
         MagickSetOption(ictx->wand, "png:exclude-chunk", "all");
 
-        // size_t t = 0;
-        // unsigned char *blob = MagickGetImageBlob(ictx->wand, &t);
-        // MagickReadImageBlob(ictx->wand, blob, t);
-
         // Blur image using Gaussian blur.
         status = MagickGaussianBlurImage(ictx->wand, 0, 4.5);
         if (status == MagickFalse) {
             r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
-            DestroyPixelWand(bg_color);
-            DestroyMagickWand(merge_wand);
             DestroyString(of_orig);
             return NGX_ERROR;
         }
@@ -464,15 +452,10 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
             status = MagickResizeImage(ictx->wand, iw, ih, CubicFilter);
             if (status == MagickFalse) {
                 r->err_status = NGX_HTTP_INTERNAL_SERVER_ERROR;
-                DestroyPixelWand(bg_color);
-                DestroyMagickWand(merge_wand);
                 DestroyString(of_orig);
                 return NGX_ERROR;
             }
         }
-        
-        DestroyPixelWand(bg_color);
-        DestroyMagickWand(merge_wand);
     }
 
     /* unsharp */
@@ -749,8 +732,8 @@ void ngx_http_small_light_imagemagick_genesis(void)
 
 void ngx_http_small_light_imagemagick_terminus(void)
 {
-    MagickCoreTerminus();
     MagickWandTerminus();
+    MagickCoreTerminus();
 }
 
 int ngx_http_small_light_imagemagick_set_thread_limit(int limit)
