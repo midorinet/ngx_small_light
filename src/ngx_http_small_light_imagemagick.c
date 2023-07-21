@@ -346,7 +346,7 @@ ngx_int_t ngx_http_small_light_imagemagick_process(
             canvas_wand,
             ictx->wand,
             AtopCompositeOp,
-            MagickFalse,
+            MagickTrue,
             sz.dx,
             sz.dy
         );
